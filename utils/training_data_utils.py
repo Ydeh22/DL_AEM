@@ -123,7 +123,7 @@ def importData(data_dir, file_select):
     for file_name in train_data_files:
         # Import full arrays
         data_array = pd.read_csv(os.path.join(data_dir, file_name), delimiter=',', header = None)
-        data.append(data_array.values)
+        data.extend(data_array.values)
     data = np.squeeze(np.array(data, dtype='float32'))
     return data
 

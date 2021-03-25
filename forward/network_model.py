@@ -148,7 +148,7 @@ class LorentzDNN(nn.Module):
         # mu = mul(magic, mu)
         # n = sqrt(mul(mu, eps))
 
-        # self.test_var = n.real.data.cpu().numpy()
+        # self.test_var = eps.data.cpu().numpy()
 
         r, t = matrix_method_slab(eps, mu, d, w_2)
         return r, t

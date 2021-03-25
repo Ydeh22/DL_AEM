@@ -19,6 +19,36 @@ from PyQt5.QtWidgets import (QFileDialog, QAbstractItemView, QListView,
                              QTreeView, QApplication, QDialog)
 
 
+def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_points=1001, title=None, figsize=[10, 5],
+                    y_axis='Test Variable', label_y1='Re', label_y2='Im'):
+    """
+    Function to plot the comparison for predicted spectra and truth spectra
+    :param Ypred:  Predicted spectra, this should be a list of number of dimension 300, numpy
+    :param Ytruth:  Truth spectra, this should be a list of number of dimension 300, numpy
+    :param title: The title of the plot, usually it comes with the time
+    :param figsize: The figure size of the plot
+    :return: The identifier of the figure
+    """
+    # Make the frequency points
+    frequency = xmin + (xmax - xmin) / num_points * np.arange(num_points)
+    if logit2 is not None:
+        f, [ax1,ax2] = plt.subplots(1,2,figsize=figsize)
+        ax1.plot(frequency, logit1, label=label_y1)
+        ax1.plot(frequency, tr1, label="Truth")
+        ax2.plot(frequency, logit2, label=label_y2)
+        ax2.plot(frequency, tr2, label="Truth")
+    else:
+        f, ax = plt.subplots(1,1,figsize=figsize)
+        plt.plot(frequency, logit1, label=label_y1)
+        plt.plot(frequency, tr1, label="Truth")
+    plt.legend()
+    plt.xlabel("Frequency (THz)")
+    plt.ylabel(y_axis)
+    plt.grid(b=None)
+    if title is not None:
+        plt.title(title)
+    return f
+
 def compare_spectra(Ypred, Ytruth, xmin=0.8, xmax=1.21979, num_points=300, T=None, title=None, figsize=[10, 5],
                     w_0=None, w_p=None, g=None, E1=None, E2=None, eps_inf=None, mu_inf=None,
                     d=None, test_var = None, label_y1='Pred', label_y2='Truth'):

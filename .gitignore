@@ -2,3 +2,5 @@
 /training_data/*
 /output/
 /inverse/
+/utils/training_data_archive/
+/forward/models/

@@ -9,15 +9,14 @@ import time
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch import pow, add, mul, div, sqrt, abs, square
+from torch import pow, add, mul, div, sqrt, abs, square, conj
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard import program
 from torchsummary import summary
 from torch.optim import lr_scheduler
 from torchviz import make_dot
-# from network_model import Lorentz_layer
 from utils.plotting import plot_weights_3D, plotMSELossDistrib, \
-    compare_spectra, compare_spectra_with_params
+    compare_spectra, compare_spectra_with_params, plot_complex
 
 # Libs
 import matplotlib
@@ -147,11 +146,11 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.001)
                 elif ('_wp' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.001)
                 elif ('_g' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.001)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
                         torch.nn.init.xavier_uniform_(child.weight)
@@ -236,19 +235,21 @@ class Network(object):
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.flags.grad_clip)
 
 
-                # if epoch % self.flags.record_step == 0:
-                #     if j == 0:
-                #         for k in range(self.flags.num_plot_compare):
-                #             f = compare_spectra(Ypred=logit[k, :].cpu().data.numpy(),
-                #                                      Ytruth=spectra[k, :].cpu().data.numpy(), w_0=w0[k, :].cpu().data.numpy(),
-                #                                 w_p=wp[k, :].cpu().data.numpy(), g=g[k, :].cpu().data.numpy(),
-                #                                 E2=None , eps_inf= eps_inf[k].cpu().data.numpy(),
-                #                                 mu_inf= mu_inf[k].cpu().data.numpy(), d=d[k].cpu().data.numpy(),
-                #                                 test_var=None, xmin=self.flags.freq_low,
-                #                                 xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
-                #
-                #             self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
-                #                                 figure=f, global_step=epoch)
+                if epoch % self.flags.record_step == 0:
+                    if j == 0:
+                        for k in range(self.flags.num_plot_compare):
+                            # test_var = self.model.test_var
+                            test_var = square(abs(pred_t)).data.cpu().numpy()
+                            truth_var = square(abs(spectra[:,:,1])).data.cpu().numpy()
+                            test_var2 = square(abs(pred_r)).data.cpu().numpy()
+                            truth_var2 = square(abs(spectra[:,:,0])).data.cpu().numpy()
+                            f = plot_complex(logit1=test_var[k, :],tr1 = truth_var[k, :],
+                                             logit2=test_var2[k, :],tr2 = truth_var2[k, :],
+                                             xmin=self.flags.freq_low,
+                                                xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
+
+                            self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
+                                                figure=f, global_step=epoch)
 
                 self.optm.step()                                        # Move one step the optimizer
                 train_loss.append(np.copy(loss.cpu().data.numpy()))     # Aggregate the loss
@@ -267,14 +268,6 @@ class Network(object):
                 # Record the training loss to tensorboard
                 self.log.add_scalar('Loss/ Training Loss', train_avg_loss, epoch)
                 self.log.add_scalar('Loss/ Batchnorm Training Loss', train_avg_eval_mode_loss, epoch)
-
-                # if epoch % self.flags.record_step == 0:
-                #     for j in range(self.flags.num_plot_compare):
-                #         f,ax = compare_spectra(Ypred=logit[j, :].cpu().data.numpy(),
-                #                                  Ytruth=spectra[j, :].cpu().data.numpy(), E2=self.model.e2[j,:,:], xmin=self.flags.freq_low,
-                #                             xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
-                #         self.log.add_figure(tag='Test ' + str(j) +') e2 Sample Spectrum'.format(1),
-                #                             figure=f, global_step=epoch)
 
                 # Set to Evaluation Mode
                 self.model.eval()
@@ -300,7 +293,6 @@ class Network(object):
                 # Record the testing loss to the tensorboard
                 test_avg_loss = np.mean(test_loss)
                 self.log.add_scalar('Loss/ Validation Loss', test_avg_loss, epoch)
-
 
                 print("This is Epoch %d, training loss %.5f, validation loss %.5f" \
                       % (epoch, train_avg_eval_mode_loss, test_avg_loss))
