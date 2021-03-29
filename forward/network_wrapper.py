@@ -85,11 +85,15 @@ class Network(object):
 
         if logit1 is None:
             return None
-        loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
-        loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
-        loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
-        loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
-        custom_loss = loss1 + loss2 + loss3 + loss4
+        # loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
+        # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        # loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
+        # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
+        # custom_loss = loss1 + loss2 + loss3 + loss4
+
+        loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
+        loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
+        custom_loss = loss1 + loss2
         return custom_loss
 
 
@@ -239,10 +243,10 @@ class Network(object):
                     if j == 0:
                         for k in range(self.flags.num_plot_compare):
                             # test_var = self.model.test_var
-                            test_var = square(abs(pred_t)).data.cpu().numpy()
-                            truth_var = square(abs(spectra[:,:,1])).data.cpu().numpy()
-                            test_var2 = square(abs(pred_r)).data.cpu().numpy()
-                            truth_var2 = square(abs(spectra[:,:,0])).data.cpu().numpy()
+                            test_var = abs(abs(pred_t)).data.cpu().numpy()
+                            truth_var = abs(abs(spectra[:,:,1])).data.cpu().numpy()
+                            test_var2 = abs(abs(pred_r)).data.cpu().numpy()
+                            truth_var2 = abs(abs(spectra[:,:,0])).data.cpu().numpy()
                             f = plot_complex(logit1=test_var[k, :],tr1 = truth_var[k, :],
                                              logit2=test_var2[k, :],tr2 = truth_var2[k, :],
                                              xmin=self.flags.freq_low,

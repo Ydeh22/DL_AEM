@@ -130,7 +130,7 @@ class LorentzDNN(nn.Module):
         mu = add(mu1, mul(mu2, j))
 
         # n0 = sqrt(mul(mu,eps))
-        # n = sqrt(mul(mu, eps))
+        n = sqrt(mul(mu, eps))
         # z = div(mu, n)
 
         # TODO Initialize d to be cylinder height, but let it be a variable
@@ -150,7 +150,13 @@ class LorentzDNN(nn.Module):
 
         # self.test_var = eps.data.cpu().numpy()
 
-        r, t = matrix_method_slab(eps, mu, d, w_2)
-        return r, t
+        # r, t = matrix_method_slab(eps, mu, d, w_2)
+        # return r, t
+
+        alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_2))
+        # print(alpha)
+        T = mul(div(4 * n.real, add(square(n.real + 1), square(n.imag))), alpha).float()
+        R = square(div(abs(n-1),abs(n+1)))
+        return R,T
 
 
