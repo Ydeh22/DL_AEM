@@ -29,10 +29,10 @@ class LorentzDNN(nn.Module):
         cuda = True if torch.cuda.is_available() else False
         if cuda:
             self.w = torch.tensor(w_numpy).cuda()
-            self.d = torch.tensor([0.5], requires_grad=True).cuda()
+            # self.d = torch.tensor([0.5], requires_grad=True).cuda()
         else:
             self.w = torch.tensor(w_numpy)
-            self.d = torch.tensor([0.5], requires_grad=True)
+            # self.d = torch.tensor([0.5], requires_grad=True)
 
         """
         General layer definitions:
@@ -75,17 +75,20 @@ class LorentzDNN(nn.Module):
             else:
                 out = bn(fc(out))
 
-        e_w0 = F.relu(self.eps_w0(F.relu(out))).unsqueeze(2)
-        e_wp = F.relu(self.eps_wp(F.relu(out))).unsqueeze(2)
-        e_g = F.relu(self.eps_g(F.relu(out))).unsqueeze(2)
+        e_w0 = F.relu(self.eps_w0(F.relu(out)))
+        e_wp = F.relu(self.eps_wp(F.relu(out)))
+        e_g = F.relu(self.eps_g(F.relu(out)))
         e_inf = F.relu(self.eps_inf(F.relu(out)))
 
-        m_w0 = F.relu(self.mu_w0(F.relu(out))).unsqueeze(2)
-        m_wp = F.relu(self.mu_wp(F.relu(out))).unsqueeze(2)
-        m_g = F.relu(self.mu_g(F.relu(out))).unsqueeze(2)
+        m_w0 = F.relu(self.mu_w0(F.relu(out)))
+        m_wp = F.relu(self.mu_wp(F.relu(out)))
+        m_g = F.relu(self.mu_g(F.relu(out)))
         m_inf = F.relu(self.mu_inf(F.relu(out)))
 
         # d = self.d(F.relu(out))
+
+        self.eps_params_out = [e_w0, e_wp, e_g, e_inf]
+        self.mu_params_out = [m_w0, m_wp, m_g, m_inf]
 
         # w0_out = w0
         # wp_out = wp
@@ -97,12 +100,12 @@ class LorentzDNN(nn.Module):
         #     p = p.unsqueeze(2)
 
         # Expand them to parallelize, (batch_size, #osc, #spec_point)
-        e_w0 = e_w0.expand(out.size()[0], self.flags.num_lorentz_osc, self.flags.num_spec_points)
-        e_wp = e_wp.expand_as(e_w0)
-        e_g = e_g.expand_as(e_w0)
-        m_w0 = m_w0.expand_as(e_w0)
-        m_wp = m_wp.expand_as(e_w0)
-        m_g = m_g.expand_as(e_w0)
+        e_w0 = e_w0.unsqueeze(2).expand(out.size()[0], self.flags.num_lorentz_osc, self.flags.num_spec_points)
+        e_wp = e_wp.unsqueeze(2).expand_as(e_w0)
+        e_g = e_g.unsqueeze(2).expand_as(e_w0)
+        m_w0 = m_w0.unsqueeze(2).expand_as(e_w0)
+        m_wp = m_wp.unsqueeze(2).expand_as(e_w0)
+        m_g = m_g.unsqueeze(2).expand_as(e_w0)
 
         # for p in (e_wp,e_g,m_w0,m_wp,m_g):
         #     p = p.expand_as(e_w0)
@@ -132,14 +135,21 @@ class LorentzDNN(nn.Module):
         # n0 = sqrt(mul(mu,eps))
         n = sqrt(mul(mu, eps))
         # z = div(mu, n)
+        n1 = n.real.type(torch.cfloat)
+        n2 = n.imag.type(torch.cfloat)
 
         # TODO Initialize d to be cylinder height, but let it be a variable
-        # d_in, _ = torch.max(G[:, :4], dim=1)
-        # if self.flags.normalize_input:
-        #     d_in = d_in * 0.5 * (self.flags.geoboundary[1]-self.flags.geoboundary[0]) + (self.flags.geoboundary[1]+self.flags.geoboundary[0]) * 0.5
+        d_in = G[:, 1]
+        if self.flags.normalize_input:
+            d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
 
-        # d = d_in.unsqueeze(1).expand_as(eps)
-        d = self.d.unsqueeze(1).expand_as(eps)
+        self.d_out = d_in
+        self.eps_out = eps
+        self.mu_out = mu
+        self.n_out = n
+
+        d = d_in.unsqueeze(1).expand_as(eps)
+        # d = self.d.unsqueeze(1).expand_as(eps)
 
         # # Spatial dispersion
         # theta = 0.0033*mul(mul(w_2,d),n0).type(torch.cfloat)
@@ -148,7 +158,7 @@ class LorentzDNN(nn.Module):
         # mu = mul(magic, mu)
         # n = sqrt(mul(mu, eps))
 
-        # self.test_var = eps.data.cpu().numpy()
+        self.test_var = n
 
         # r, t = matrix_method_slab(eps, mu, d, w_2)
         # return r, t
@@ -156,6 +166,7 @@ class LorentzDNN(nn.Module):
         alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_2))
         # print(alpha)
         T = mul(div(4 * n.real, add(square(n.real + 1), square(n.imag))), alpha).float()
+        # R = square(div(abs(add(n.real,abs(n.imag))-1),abs(add(n.real,abs(n.imag))+1)))
         R = square(div(abs(n-1),abs(n+1)))
         return R,T
 
