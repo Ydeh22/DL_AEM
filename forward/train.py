@@ -23,7 +23,8 @@ def training_from_flag(flags):
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     # # Import the data
-    train_loader, test_loader = tdu.generate_torch_dataloader(geoboundary=flags.geoboundary,
+    train_loader, test_loader = tdu.generate_torch_dataloader(flags.x_range, flags.y_range,
+                                                              geoboundary=flags.geoboundary,
                                                               data_dir=flags.data_dir,
                                                               batch_size=flags.batch_size,
                                                               normalize_input=flags.normalize_input,

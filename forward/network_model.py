@@ -144,10 +144,6 @@ class LorentzDNN(nn.Module):
             d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
 
         self.d_out = d_in
-        self.eps_out = eps
-        self.mu_out = mu
-        self.n_out = n
-
         d = d_in.unsqueeze(1).expand_as(eps)
         # d = self.d.unsqueeze(1).expand_as(eps)
 
@@ -158,7 +154,11 @@ class LorentzDNN(nn.Module):
         # mu = mul(magic, mu)
         # n = sqrt(mul(mu, eps))
 
-        self.test_var = n
+        self.eps_out = eps
+        self.mu_out = mu
+        self.n_out = n
+
+        # self.test_var = n
 
         # r, t = matrix_method_slab(eps, mu, d, w_2)
         # return r, t

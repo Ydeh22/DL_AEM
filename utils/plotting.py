@@ -19,7 +19,8 @@ from PyQt5.QtWidgets import (QFileDialog, QAbstractItemView, QListView,
                              QTreeView, QApplication, QDialog)
 
 
-def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, xmin=20, xmax=40, num_points=1001, title=None, figsize=[15, 10],
+def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, xmin=20, xmax=40, num_points=1001,
+               num_osc = 10, title=None, figsize=[15, 10],
                     y_axis='Test Variable', label_y1='Pred', label_y2='Pred y2'):
     """
     Function to plot the comparison for predicted spectra and truth spectra
@@ -72,13 +73,16 @@ def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, 
     # f2,ax13 = plt.subplots(1,1,figsize=[10, 3])
     ax13.add_artist(at)
     columns = ('eps w0', 'eps wp', 'eps g', 'mu w0', 'mu wp', 'mu g')
-    table_data = np.empty((6, 6))
+    num_osc = 10
+    table_data = np.empty((6, num_osc))
     table_data[0, :] = model.eps_params_out[0][index].cpu().data.numpy()
     table_data[1, :] = model.eps_params_out[1][index].cpu().data.numpy()
     table_data[2, :] = model.eps_params_out[2][index].cpu().data.numpy()
     table_data[3, :] = model.mu_params_out[0][index].cpu().data.numpy()
     table_data[4, :] = model.mu_params_out[1][index].cpu().data.numpy()
     table_data[5, :] = model.mu_params_out[2][index].cpu().data.numpy()
+
+
     table_data = np.round(table_data, 3)
     ax13.table(cellText=np.transpose(table_data), colLabels=columns, loc='center',fontsize=72)
     ax13.axis('off')

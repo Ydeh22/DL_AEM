@@ -151,11 +151,11 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.75)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.8)
                 elif ('_wp' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.2)
-                elif ('_g' in layer_name):
                     torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                elif ('_g' in layer_name):
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
                         torch.nn.init.xavier_uniform_(child.weight)
@@ -241,25 +241,28 @@ class Network(object):
 
 
                 if epoch % self.flags.record_step == 0:
-                    if j == 0:
-                        for k in range(self.flags.num_plot_compare):
+                    for b in [0,1,2]:
+                        if j == b:
+                            for k in range(self.flags.num_plot_compare):
 
-                            logit1 = pred_t.data.cpu().numpy()
-                            tr1 = square(abs(spectra[:,:,1])).data.cpu().numpy()
-                            logit2 = pred_r.data.cpu().numpy()
-                            tr2 = square(abs(spectra[:,:,0])).data.cpu().numpy()
+                                logit1 = pred_t.data.cpu().numpy()
+                                tr1 = square(abs(spectra[:,:,1])).data.cpu().numpy()
+                                logit2 = pred_r.data.cpu().numpy()
+                                tr2 = square(abs(spectra[:,:,0])).data.cpu().numpy()
 
-                            # f = plot_complex(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
-                            #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
-                            #                  num_points=self.flags.num_spec_points)
-                            # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
-                            #                     figure=f, global_step=epoch)
+                                # f = plot_complex(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
+                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                #                  num_points=self.flags.num_spec_points)
+                                # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
+                                #                     figure=f, global_step=epoch)
 
-                            f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
-                                             model=self.model, index=k, xmin=self.flags.freq_low,
-                                                xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
-                            self.log.add_figure(tag='Test ' + str(k) +') Debug Optical Constants'.format(1),
-                                                figure=f, global_step=epoch)
+                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
+                                                 model=self.model, index=k, xmin=self.flags.freq_low,
+                                                    xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                               num_osc=self.flags.num_lorentz_osc)
+                                self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
+                                                        ' Debug Optical Constants'.format(1),
+                                                    figure=f, global_step=epoch)
 
 
 

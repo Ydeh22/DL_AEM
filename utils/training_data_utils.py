@@ -127,9 +127,9 @@ def importData(data_dir, file_select):
     data = np.squeeze(np.array(data, dtype='float32'))
     return data
 
-def generate_torch_dataloader(geoboundary, normalize_input=True,
+def generate_torch_dataloader(xrange, yrange, geoboundary, normalize_input=True,
                               data_dir=os.path.abspath(''), batch_size=128,
-                              rand_seed=1234, test_ratio = 0.2, shuffle = True):
+                              rand_seed=1234, test_ratio = 0.2, shuffle = False):
     """
 
       :param batch_size: size of the batch read every time
@@ -173,14 +173,14 @@ def generate_torch_dataloader(geoboundary, normalize_input=True,
                     (dset[:, p::num_params] - (geoboundary[p] +geoboundary[p+num_params]) / 2) / \
                     (geoboundary[p+num_params] - geoboundary[p]) * 2
 
-    train_data = MetaMaterialDataSet(geom_Tr, scat_Tr, bool_train=True)
-    test_data = MetaMaterialDataSet(geom_Te, scat_Te, bool_train=False)
+    train_data = MetaMaterialDataSet(geom_Tr[:,xrange], scat_Tr[:,yrange], bool_train=True)
+    test_data = MetaMaterialDataSet(geom_Te[:,xrange], scat_Te[:,yrange], bool_train=False)
     # train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size)
     # test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size)
-    train_loader = FastTensorDataLoader(torch.from_numpy(geom_Tr),
-                                        torch.from_numpy(scat_Tr), batch_size=batch_size, shuffle=shuffle)
-    test_loader = FastTensorDataLoader(torch.from_numpy(geom_Te),
-                                       torch.from_numpy(scat_Te), batch_size=batch_size, shuffle=shuffle)
+    train_loader = FastTensorDataLoader(torch.from_numpy(geom_Tr[:,xrange]),
+                                        torch.from_numpy(scat_Tr[:,yrange]), batch_size=batch_size, shuffle=shuffle)
+    test_loader = FastTensorDataLoader(torch.from_numpy(geom_Te[:,xrange]),
+                                       torch.from_numpy(scat_Te[:,yrange]), batch_size=batch_size, shuffle=shuffle)
     return train_loader, test_loader
 
 class MetaMaterialDataSet(Dataset):
