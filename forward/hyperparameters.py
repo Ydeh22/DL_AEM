@@ -24,14 +24,14 @@ LR_WARM_RESTART = 200
 
 # Data Specific parameters
 X_RANGE = [i for i in range(0, 4)]
-Y_RANGE = [i for i in range(0, 800)]
+Y_RANGE = [i for i in range(0, 700)]
 FREQ_LOW = 20
-FREQ_HIGH = 35.98
-NUM_SPEC_POINTS = 800
+FREQ_HIGH = 33.98
+NUM_SPEC_POINTS = 700
 FORCE_RUN = True
 # DATA_DIR = ''                # For local usage
-DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop usage
-# DATA_DIR = 'C:/Users/Omar/PycharmProjects/DL_AEM/' # For Omar home desktop usage
+# DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop usage
+DATA_DIR = 'C:/Users/Omar/PycharmProjects/DL_AEM/' # For Omar home desktop usage
 # DATA_DIR = '/home/omar/PycharmProjects/DL_AEM'  # For Omar laptop usage
 # Format for geoboundary is [p0_min... pf_min p0_max... pf_max]
 GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]

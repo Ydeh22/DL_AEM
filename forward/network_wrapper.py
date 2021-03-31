@@ -91,9 +91,9 @@ class Network(object):
         # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
         # custom_loss = loss1 + loss2 + loss3 + loss4
 
-        loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
+        # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
         loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
-        # loss1 = 0
+        loss1 = 0
         custom_loss = loss1 + loss2
         return custom_loss
 
