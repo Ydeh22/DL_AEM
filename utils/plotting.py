@@ -19,6 +19,81 @@ from PyQt5.QtWidgets import (QFileDialog, QAbstractItemView, QListView,
                              QTreeView, QApplication, QDialog)
 
 
+def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, xmin=20, xmax=40, num_points=1001,
+               num_osc = 10, title=None, figsize=[15, 10],
+                    y_axis='Test Variable', label_y1='Pred', label_y2='Pred y2'):
+    """
+    Function to plot the comparison for predicted spectra and truth spectra
+    :param Ypred:  Predicted spectra, this should be a list of number of dimension 300, numpy
+    :param Ytruth:  Truth spectra, this should be a list of number of dimension 300, numpy
+    :param title: The title of the plot, usually it comes with the time
+    :param figsize: The figure size of the plot
+    :return: The identifier of the figure
+    """
+    # Make the frequency points
+    frequency = xmin + (xmax - xmin) / num_points * np.arange(num_points)
+
+    f1 = plt.figure(figsize=figsize)
+    ax11 = plt.subplot2grid((3, 3), (0, 0))
+    ax12 = plt.subplot2grid((3, 3), (0, 1))
+    ax13 = plt.subplot2grid((3, 3), (0, 2), rowspan=2)
+    ax21 = plt.subplot2grid((3, 3), (1, 0))
+    ax22 = plt.subplot2grid((3, 3), (1, 1))
+
+    ax11.plot(frequency, logit1, label=label_y1)
+    ax11.plot(frequency, tr1, label="Truth")
+
+    if logit2 is not None:
+        ax11.plot(frequency, logit2, label=label_y2)
+        ax11.plot(frequency, tr2, label="Truth y2")
+
+    ax12.plot(frequency, model.n_out[index].real.cpu().data.numpy(), label="n")
+    ax12.plot(frequency, model.n_out[index].imag.cpu().data.numpy(), color='r', label="k")
+    ax21.plot(frequency, model.eps_out[index].real.cpu().data.numpy(), label="e1")
+    ax21.plot(frequency, model.eps_out[index].imag.cpu().data.numpy(), color='r', label="e2")
+    ax22.plot(frequency, model.mu_out[index].real.cpu().data.numpy(), label="mu1")
+    ax22.plot(frequency, model.mu_out[index].imag.cpu().data.numpy(), color='r', label="mu2")
+
+    ax11.legend()
+    ax12.legend()
+    ax21.legend()
+    ax22.legend()
+    ax22.set_xlabel("Frequency (THz)")
+    ax11.set_ylabel("Test Variable")
+    if title is not None:
+        plt.title(title)
+
+    at = AnchoredText("eps_inf: " + str(np.round(model.eps_params_out[3][index].cpu().data.numpy(), 3)) + \
+                        ", mu_inf: " + str(np.round(model.mu_params_out[3][index].cpu().data.numpy(), 3)) + \
+                        ", d: " + str(np.round(model.d_out[index].cpu().data.numpy(), 3)),
+                      prop=dict(size=10), frameon=True,
+                      loc='lower left'
+                      )
+    at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+    # f2,ax13 = plt.subplots(1,1,figsize=[10, 3])
+    ax13.add_artist(at)
+    columns = ('eps w0', 'eps wp', 'eps g', 'mu w0', 'mu wp', 'mu g')
+    num_osc = 10
+    table_data = np.empty((6, num_osc))
+    table_data[0, :] = model.eps_params_out[0][index].cpu().data.numpy()
+    table_data[1, :] = model.eps_params_out[1][index].cpu().data.numpy()
+    table_data[2, :] = model.eps_params_out[2][index].cpu().data.numpy()
+    table_data[3, :] = model.mu_params_out[0][index].cpu().data.numpy()
+    table_data[4, :] = model.mu_params_out[1][index].cpu().data.numpy()
+    table_data[5, :] = model.mu_params_out[2][index].cpu().data.numpy()
+
+
+    table_data = np.round(table_data, 3)
+    ax13.table(cellText=np.transpose(table_data), colLabels=columns, loc='center',fontsize=72)
+    ax13.axis('off')
+    ax13.grid(b=None)
+    # plt.subplots_adjust(left=0.2, bottom=0.2)
+    # ax13.figure.set_size_inches(10, 5)
+    # print(eps[0].cpu().data.numpy().shape[1])
+    # print(eps[0].cpu().data.numpy())
+
+    return f1
+
 def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_points=1001, title=None, figsize=[10, 5],
                     y_axis='Test Variable', label_y1='Re', label_y2='Im'):
     """

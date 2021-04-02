@@ -16,7 +16,7 @@ from torchsummary import summary
 from torch.optim import lr_scheduler
 from torchviz import make_dot
 from utils.plotting import plot_weights_3D, plotMSELossDistrib, \
-    compare_spectra, compare_spectra_with_params, plot_complex
+    compare_spectra, compare_spectra_with_params, plot_complex, plot_debug
 
 # Libs
 import matplotlib
@@ -91,8 +91,9 @@ class Network(object):
         # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
         # custom_loss = loss1 + loss2 + loss3 + loss4
 
-        loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
+        # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
         loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
+        loss1 = 0
         custom_loss = loss1 + loss2
         return custom_loss
 
@@ -150,11 +151,11 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.001)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.8)
                 elif ('_wp' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.001)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
                 elif ('_g' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.001)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
                         torch.nn.init.xavier_uniform_(child.weight)
@@ -182,7 +183,7 @@ class Network(object):
                     if cuda:
                         geometry = geometry.cuda()
                         spectra = spectra.cuda()
-                    logit,w0,wp,g,eps_inf,mu_inf,d = self.model(geometry)
+                    logit,w0,wp,g = self.model(geometry)
                     np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
                     np.savetxt(fyt, spectra.cpu().data.numpy(), fmt='%.3f')
                     np.savetxt(fyp, logit.cpu().data.numpy(), fmt='%.3f')
@@ -240,20 +241,30 @@ class Network(object):
 
 
                 if epoch % self.flags.record_step == 0:
-                    if j == 0:
-                        for k in range(self.flags.num_plot_compare):
-                            # test_var = self.model.test_var
-                            test_var = abs(abs(pred_t)).data.cpu().numpy()
-                            truth_var = abs(abs(spectra[:,:,1])).data.cpu().numpy()
-                            test_var2 = abs(abs(pred_r)).data.cpu().numpy()
-                            truth_var2 = abs(abs(spectra[:,:,0])).data.cpu().numpy()
-                            f = plot_complex(logit1=test_var[k, :],tr1 = truth_var[k, :],
-                                             logit2=test_var2[k, :],tr2 = truth_var2[k, :],
-                                             xmin=self.flags.freq_low,
-                                                xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
+                    for b in [0,1,2]:
+                        if j == b:
+                            for k in range(self.flags.num_plot_compare):
 
-                            self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
-                                                figure=f, global_step=epoch)
+                                logit1 = pred_t.data.cpu().numpy()
+                                tr1 = square(abs(spectra[:,:,1])).data.cpu().numpy()
+                                logit2 = pred_r.data.cpu().numpy()
+                                tr2 = square(abs(spectra[:,:,0])).data.cpu().numpy()
+
+                                # f = plot_complex(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
+                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                #                  num_points=self.flags.num_spec_points)
+                                # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
+                                #                     figure=f, global_step=epoch)
+
+                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
+                                                 model=self.model, index=k, xmin=self.flags.freq_low,
+                                                    xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                               num_osc=self.flags.num_lorentz_osc)
+                                self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
+                                                        ' Debug Optical Constants'.format(1),
+                                                    figure=f, global_step=epoch)
+
+
 
                 self.optm.step()                                        # Move one step the optimizer
                 train_loss.append(np.copy(loss.cpu().data.numpy()))     # Aggregate the loss
