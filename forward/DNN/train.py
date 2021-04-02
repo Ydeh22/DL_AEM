@@ -3,15 +3,11 @@ This file serves as a training interface for training the network
 """
 # Built in
 import os
-from sys import exit
-# Other custom network modules
-import flagreader
-import datareader
-# from network_wrapper_parallel import Network
-# from network_model_parallel import Forward
+import utils.training_data_utils as tdu
+import utils.flagreader as fr
 from network_wrapper import Network
 from network_model import Forward
-from logging_functions import write_flags_and_BVE
+from utils.logging import write_flags_and_BVE
 
 
 def training_from_flag(flags):
@@ -27,13 +23,13 @@ def training_from_flag(flags):
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     # # Import the data
-    train_loader, test_loader = datareader.read_data(x_range=flags.x_range,
-                                                     y_range=flags.y_range,
-                                                     geoboundary=flags.geoboundary,
-                                                     batch_size=flags.batch_size,
-                                                     normalize_input=flags.normalize_input,
-                                                     data_dir=flags.data_dir,
-                                                     test_ratio=flags.test_ratio)
+    train_loader, test_loader = tdu.generate_torch_dataloader(x_range=flags.x_range,
+                                                             y_range=flags.y_range,
+                                                             geoboundary=flags.geoboundary,
+                                                             batch_size=flags.batch_size,
+                                                             normalize_input=flags.normalize_input,
+                                                             data_dir=flags.data_dir,
+                                                             test_ratio=flags.test_ratio)
 
 
     # Reset the boundary if normalized
@@ -58,7 +54,7 @@ def training_from_flag(flags):
 
 if __name__ == '__main__':
     # Read the parameters to be set
-    flags = flagreader.read_flag()
+    flags = fr.read_flag()
 
     # Call the train from flag function
     training_from_flag(flags)

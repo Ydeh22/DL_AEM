@@ -77,13 +77,12 @@ class Network(object):
         if logit is None:
             return None
         MSE_loss = nn.functional.mse_loss(logit, labels, reduction='mean')          # The MSE Loss of the network
-        # MSE_loss *= 10000
 
         return MSE_loss
 
-    def make_custom_loss(self, logit1=None, logit2=None, labels=None):
+    def make_custom_loss(self, logit=None, labels=None):
 
-        if logit1 is None:
+        if logit is None:
             return None
         # loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
         # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
@@ -91,8 +90,9 @@ class Network(object):
         # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
         # custom_loss = loss1 + loss2 + loss3 + loss4
 
-        loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
-        loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
+        # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
+        loss1 = 0
+        loss2 = nn.functional.mse_loss(logit.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
         custom_loss = loss1 + loss2
 
         return custom_loss
@@ -216,8 +216,9 @@ class Network(object):
                     spectra = spectra.cuda()  # Put data onto GPU
 
                 self.optm.zero_grad()  # Zero the gradient first
-                pred_r, pred_t = self.model(geometry)  # Get the output
-                loss = self.make_custom_loss(pred_r, pred_t, spectra)
+                logit = self.model(geometry)  # Get the output
+                loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
+                # loss = self.make_custom_loss(pred_r, pred_t, spectra)
 
                 # if j == 0 and epoch == 0:
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
@@ -236,12 +237,8 @@ class Network(object):
                     if j == 0:
                         for k in range(self.flags.num_plot_compare):
                             # test_var = self.model.test_var
-                            test_var = abs(abs(pred_t)).data.cpu().numpy()
-                            truth_var = abs(abs(spectra[:, :, 1])).data.cpu().numpy()
-                            test_var2 = abs(abs(pred_r)).data.cpu().numpy()
-                            truth_var2 = abs(abs(spectra[:, :, 0])).data.cpu().numpy()
-                            f = plot_complex(logit1=test_var[k, :], tr1=truth_var[k, :],
-                                             logit2=test_var2[k, :], tr2=truth_var2[k, :],
+                            f = plot_complex(logit1=logit[k, :].cpu().data.numpy(),
+                                             tr1=square(abs(spectra[k,:,1])).cpu().data.numpy(),
                                              xmin=self.flags.freq_low,
                                              xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
 
@@ -252,8 +249,8 @@ class Network(object):
                 train_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
 
                 self.model.eval()
-                pred_r, pred_t = self.model(geometry)  # Get the output
-                loss = self.make_custom_loss(pred_r, pred_t, spectra)
+                logit = self.model(geometry)  # Get the output
+                loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
                 train_loss_eval_mode_list.append(np.copy(loss.cpu().data.numpy()))
                 self.model.train()
 
@@ -276,8 +273,8 @@ class Network(object):
                         if cuda:
                             geometry = geometry.cuda()
                             spectra = spectra.cuda()
-                        pred_r, pred_t = self.model(geometry)  # Get the output
-                        loss = self.make_custom_loss(pred_r, pred_t, spectra)
+                        logit = self.model(geometry)  # Get the output
+                        loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
 
                         test_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
 
@@ -310,7 +307,7 @@ class Network(object):
             # # self.lr_scheduler.step()
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 0.1
+                restart_lr = self.flags.lr * 1.0
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:

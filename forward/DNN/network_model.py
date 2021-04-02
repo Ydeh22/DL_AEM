@@ -10,7 +10,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from torch import pow, add, mul, div, sqrt, square, cos, sin, conj, abs, tan
-from optical_constants import matrix_method_slab
 
 class Forward(nn.Module):
     def __init__(self, flags):
@@ -28,6 +27,9 @@ class Forward(nn.Module):
         for ind, fc_num in enumerate(flags.linear[0:-1]):  # Excluding the last one as we need intervals
             self.linears.append(nn.Linear(fc_num, flags.linear[ind + 1]))
             self.bn_linears.append(nn.BatchNorm1d(flags.linear[ind + 1]))
+
+        # self.linears.append(nn.Linear(flags.linear[-1],flags.num_spec_points))
+        # self.bn_linears.append(nn.BatchNorm1d(flags.linear[-1]))
 
         # Conv Layer definitions here
         self.convs = nn.ModuleList([])

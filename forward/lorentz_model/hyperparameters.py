@@ -24,10 +24,10 @@ LR_WARM_RESTART = 200
 
 # Data Specific parameters
 X_RANGE = [i for i in range(0, 4)]
-Y_RANGE = [i for i in range(0, 700)]
-FREQ_LOW = 20
-FREQ_HIGH = 33.98
-NUM_SPEC_POINTS = 700
+Y_RANGE = [i for i in range(1, 1001)]
+FREQ_LOW = 20.02
+FREQ_HIGH = 40
+NUM_SPEC_POINTS = 1000
 FORCE_RUN = True
 # DATA_DIR = ''                # For local usage
 # DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop usage
