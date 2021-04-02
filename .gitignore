@@ -3,4 +3,4 @@
 /output/
 /inverse/
 /utils/training_data_archive/
-/forward/models/
+/forward/lorentz_model/models/

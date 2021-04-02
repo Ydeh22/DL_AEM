@@ -127,7 +127,7 @@ def importData(data_dir, file_select):
     data = np.squeeze(np.array(data, dtype='float32'))
     return data
 
-def generate_torch_dataloader(geoboundary, normalize_input=True,
+def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=True,
                               data_dir=os.path.abspath(''), batch_size=128,
                               rand_seed=1234, test_ratio = 0.2, shuffle = True):
     """
@@ -177,10 +177,10 @@ def generate_torch_dataloader(geoboundary, normalize_input=True,
     test_data = MetaMaterialDataSet(geom_Te, scat_Te, bool_train=False)
     # train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size)
     # test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size)
-    train_loader = FastTensorDataLoader(torch.from_numpy(geom_Tr),
-                                        torch.from_numpy(scat_Tr), batch_size=batch_size, shuffle=shuffle)
-    test_loader = FastTensorDataLoader(torch.from_numpy(geom_Te),
-                                       torch.from_numpy(scat_Te), batch_size=batch_size, shuffle=shuffle)
+    train_loader = FastTensorDataLoader(torch.from_numpy(geom_Tr[:, x_range]),
+                                        torch.from_numpy(scat_Tr[:, y_range]), batch_size=batch_size, shuffle=shuffle)
+    test_loader = FastTensorDataLoader(torch.from_numpy(geom_Te[:, x_range]),
+                                       torch.from_numpy(scat_Te[:, y_range]), batch_size=batch_size, shuffle=shuffle)
     return train_loader, test_loader
 
 class MetaMaterialDataSet(Dataset):
