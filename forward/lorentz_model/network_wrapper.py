@@ -202,7 +202,7 @@ class Network(object):
         # Construct optimizer after the model moved to GPU
         self.optm = self.make_optimizer()
         self.lr_scheduler = self.make_lr_scheduler()
-        self.init_weights()
+        # self.init_weights()
 
         # # Start a tensorboard session for logging loss and training images
         tb = program.TensorBoard()
@@ -225,7 +225,7 @@ class Network(object):
                 self.optm.zero_grad()                                   # Zero the gradient first
                 pred_r, pred_t = self.model(geometry)            # Get the output
                 loss = self.make_custom_loss(pred_r, pred_t, spectra)
-
+                print(abs(spectra[:,:,1]))
                 # if j == 0 and epoch == 0:
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
                 #                                                                            format="png",
@@ -241,28 +241,26 @@ class Network(object):
 
 
                 if epoch % self.flags.record_step == 0:
-                    for b in [0,1,2]:
+                    for b in [0]:
                         if j == b:
                             for k in range(self.flags.num_plot_compare):
 
-                                logit1 = pred_t.data.cpu().numpy()
-                                tr1 = square(abs(spectra[:,:,1])).data.cpu().numpy()
-                                logit2 = pred_r.data.cpu().numpy()
-                                tr2 = square(abs(spectra[:,:,0])).data.cpu().numpy()
-
-                                # f = plot_complex(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
-                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
-                                #                  num_points=self.flags.num_spec_points)
-                                # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
-                                #                     figure=f, global_step=epoch)
-
-                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
-                                                 model=self.model, index=k, xmin=self.flags.freq_low,
-                                                    xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
-                                               num_osc=self.flags.num_lorentz_osc)
-                                self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
-                                                        ' Debug Optical Constants'.format(1),
+                                f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
+                                                 tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
+                                                 logit2=spectra[k, :, 1].real.cpu().data.numpy(),
+                                                 tr2 = spectra[k, :, 1].imag.cpu().data.numpy(),
+                                                 xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                                 num_points=self.flags.num_spec_points)
+                                self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
                                                     figure=f, global_step=epoch)
+
+                                # f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
+                                #                  model=self.model, index=k, xmin=self.flags.freq_low,
+                                #                     xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                #                num_osc=self.flags.num_lorentz_osc)
+                                # self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
+                                #                         ' Debug Optical Constants'.format(1),
+                                #                     figure=f, global_step=epoch)
 
 
 

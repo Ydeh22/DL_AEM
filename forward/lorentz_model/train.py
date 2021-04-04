@@ -6,7 +6,7 @@ import os
 import utils.training_data_utils as tdu
 import utils.flagreader as fr
 from network_wrapper import Network
-from network_model import LorentzDNN
+from network_model import LorentzDNN, eps_mu_DNN
 from utils.logging import write_flags_and_BVE
 
 
@@ -40,6 +40,7 @@ def training_from_flag(flags):
     # Make Network
     print("Making network now")
     ntwk = Network(LorentzDNN, flags, train_loader, test_loader)
+    # ntwk = Network(eps_mu_DNN, flags, train_loader, test_loader)
 
     # Training process
     print("Start training now...")
