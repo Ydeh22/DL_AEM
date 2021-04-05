@@ -9,7 +9,7 @@ from matplotlib.offsetbox import AnchoredText
 import pandas as pd
 # from models import evaluate_model
 import seaborn as sns; sns.set()
-import logging
+import utils.logging as logging
 from pandas.plotting import table
 from scipy.spatial import distance_matrix
 from scipy.sparse import csr_matrix
@@ -106,6 +106,7 @@ def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_p
     """
     # Make the frequency points
     frequency = xmin + (xmax - xmin) / num_points * np.arange(num_points)
+    mse_loss = np.mean((logit1 - tr1) ** 2)
     if logit2 is not None:
         f, [ax1,ax2] = plt.subplots(1,2,figsize=figsize)
         ax1.plot(frequency, logit1, label=label_y1)
@@ -122,6 +123,14 @@ def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_p
     plt.grid(b=None)
     if title is not None:
         plt.title(title)
+
+    at = AnchoredText("MSE: " + str(np.round(mse_loss, 6)),
+                      prop=dict(size=15), frameon=True,
+                      loc='lower left',
+                      )
+    at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+    ax.add_artist(at)
+
     return f
 
 def compare_spectra(Ypred, Ytruth, xmin=0.8, xmax=1.21979, num_points=300, T=None, title=None, figsize=[10, 5],
@@ -323,7 +332,7 @@ def plotMSELossDistrib(pred, truth):
 
 def plotMSELossDistrib_eval(pred_file, truth_file, flags):
 
-    mae, mse = utils.compare_truth_pred(pred_file, truth_file)
+    mae, mse = compare_truth_pred(pred_file, truth_file)
     plt.figure(figsize=(12, 6))
     plt.hist(mse, bins=100)
     plt.xlabel('Mean Squared Error')
@@ -437,7 +446,7 @@ def HeatMapBVL(plot_x_name, plot_y_name, title,  save_name='HeatMap.png', HeatMa
                 # print("This is a list!")
                 df_aggregate.iloc[i,j] = len(eval(df_aggregate.iloc[i,j]))
 
-    print("after transoformation:",df_aggregate)
+    print("after transformation:",df_aggregate)
     
     #Change the feature if it is a tuple, change to length of it
     for cnt, point in enumerate(HMpoint_list):
@@ -591,3 +600,40 @@ def plot_loss_folder_comparison():
 
         return df
 
+
+def compare_truth_pred(pred_file, truth_file, cut_off_outlier_thres=None, quiet_mode=False):
+    """
+    Read truth and pred from csv files, compute their mean-absolute-error and the mean-squared-error
+    :param pred_file: full path to pred file
+    :param truth_file: full path to truth file
+    :return: mae and mse
+    """
+    if isinstance(pred_file, str):  # If input is a file name (original set up)
+        pred = np.loadtxt(pred_file, delimiter=' ')
+        truth = np.loadtxt(truth_file, delimiter=' ')
+    elif isinstance(pred_file, np.ndarray):
+        pred = pred_file
+        truth = truth_file
+    else:
+        print('In the compare_truth_pred function, your input pred and truth is neither a file nor a numpy array')
+    if not quiet_mode:
+        print("in compare truth pred function in eval_help package, your shape of pred file is", np.shape(pred))
+    if len(np.shape(pred)) == 1:
+        # Due to Ballistics dataset gives some non-real results (labelled -999)
+        valid_index = pred != -999
+        if (np.sum(valid_index) != len(valid_index)) and not quiet_mode:
+            print("Your dataset should be ballistics and there are non-valid points in your prediction!")
+            print('number of non-valid points is {}'.format(len(valid_index) - np.sum(valid_index)))
+        pred = pred[valid_index]
+        truth = truth[valid_index]
+        # This is for the edge case of ballistic, where y value is 1 dimensional which cause dimension problem
+        pred = np.reshape(pred, [-1, 1])
+        truth = np.reshape(truth, [-1, 1])
+    mae = np.mean(np.abs(pred - truth), axis=1)
+    mse = np.mean(np.square(pred - truth), axis=1)
+
+    if cut_off_outlier_thres is not None:
+        mse = mse[mse < cut_off_outlier_thres]
+        mae = mae[mae < cut_off_outlier_thres]
+
+    return mae, mse

@@ -153,14 +153,23 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
 
     if (test_ratio > 0):
         print("Splitting data into training and test sets with a ratio of:", str(test_ratio))
-        geom_Tr, geom_Te, scat_Tr, scat_Te = train_test_split(geom, scat,
+        dataset_size = len(geom)
+        # dataset_size = 1000
+        geom_Tr, geom_Te, scat_Tr, scat_Te = train_test_split(geom[:dataset_size], scat[:dataset_size],
                                                                 test_size=test_ratio, random_state=rand_seed)
         print('Total number of training samples is {}'.format(len(geom_Tr)))
         print('Total number of test samples is {}'.format(len(geom_Te)))
         print('Length of an output spectrum is {}'.format(len(scat_Tr[1])))
     else:
         print("Using separate file from dataIn/Eval as test set")
-        geom_Te, scat_Te = importData(os.path.join(data_dir, 'training_data', 'eval'))
+        geom_Te = importData(os.path.join(data_dir, 'training_data', 'eval'), 'inputs')
+        s11_re = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S11(Re)')
+        s11_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S11(Im)')
+        s21_re = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Re)')
+        s21_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Im)')
+        s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
+        s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
+        scat_Te = np.concatenate((s11, s21), axis=2)
 
     print('Generating torch datasets')
 
@@ -177,6 +186,7 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     test_data = MetaMaterialDataSet(geom_Te, scat_Te, bool_train=False)
     # train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size)
     # test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size)
+
     train_loader = FastTensorDataLoader(torch.from_numpy(geom_Tr[:, x_range]),
                                         torch.from_numpy(scat_Tr[:, y_range]), batch_size=batch_size, shuffle=shuffle)
     test_loader = FastTensorDataLoader(torch.from_numpy(geom_Te[:, x_range]),
