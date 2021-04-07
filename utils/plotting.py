@@ -114,7 +114,7 @@ def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_p
         ax2.plot(frequency, logit2, label=label_y2)
         ax2.plot(frequency, tr2, label="Truth")
     else:
-        f, ax = plt.subplots(1,1,figsize=figsize)
+        f, ax1 = plt.subplots(1,1,figsize=figsize)
         plt.plot(frequency, logit1, label=label_y1)
         plt.plot(frequency, tr1, label="Truth")
     plt.legend()
@@ -129,7 +129,7 @@ def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_p
                       loc='lower left',
                       )
     at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
-    ax.add_artist(at)
+    ax1.add_artist(at)
 
     return f
 
