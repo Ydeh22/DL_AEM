@@ -176,9 +176,9 @@ class Network(object):
                     if cuda:
                         geometry = geometry.cuda()
                         spectra = spectra.cuda()
-                    logit,w0,wp,g,eps_inf,mu_inf,d = self.model(geometry)
+                    logit = self.model(geometry)
                     np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyt, spectra.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyt, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
                     np.savetxt(fyp, logit.cpu().data.numpy(), fmt='%.3f')
         return Ypred_file, Ytruth_file
 
@@ -198,10 +198,10 @@ class Network(object):
         self.init_weights()
 
         # # Start a tensorboard session for logging loss and training images
-        tb = program.TensorBoard()
-        tb.configure(argv=[None, '--logdir', self.ckpt_dir])
-        url = tb.launch()
-        print("TensorBoard started at %s" % url)
+        # tb = program.TensorBoard()
+        # tb.configure(argv=[None, '--logdir', self.ckpt_dir])
+        # url = tb.launch()
+        # print("TensorBoard started at %s" % url)
 
         for epoch in range(self.flags.train_step):
             # print("This is training Epoch {}".format(epoch))
@@ -240,7 +240,8 @@ class Network(object):
                             f = plot_complex(logit1=logit[k, :].cpu().data.numpy(),
                                              tr1=square(abs(spectra[k,:,1])).cpu().data.numpy(),
                                              xmin=self.flags.freq_low,
-                                             xmax=self.flags.freq_high, num_points=self.flags.num_spec_points)
+                                             xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                             y_axis='Transmission', label_y1='DNN', label_y2='Truth')
 
                             self.log.add_figure(tag='Test ' + str(k) + ') Sample Transmission Spectrum'.format(1),
                                                 figure=f, global_step=epoch)

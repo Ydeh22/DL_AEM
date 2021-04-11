@@ -5,8 +5,8 @@ This file serves as a training interface for training the network
 import os
 import utils.training_data_utils as tdu
 import utils.flagreader as fr
-from network_wrapper import Network
-from network_model import LorentzDNN, eps_mu_DNN
+from forward.lorentz_model.network_wrapper import Network
+from forward.lorentz_model.network_model import LorentzDNN, eps_mu_DNN
 from utils.logging import write_flags_and_BVE
 
 

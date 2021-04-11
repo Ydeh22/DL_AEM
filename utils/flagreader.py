@@ -24,8 +24,6 @@ def read_flag():
     parser = argparse.ArgumentParser()
 
     # Model Architectural Params
-    parser.add_argument('--use-lorentz', type=bool, default=USE_LORENTZ,
-                        help='The boolean flag that indicate whether we use lorentz oscillators')
     parser.add_argument('--num-lorentz-osc', type=int, default=NUM_LORENTZ_OSC,
                         help='Number of lorentz oscillators to use')
     parser.add_argument('--linear', type=list, default=LINEAR, help='The fc layers units')

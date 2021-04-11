@@ -4,3 +4,6 @@
 /inverse/
 /utils/training_data_archive/
 /forward/lorentz_model/models/
+/forward/models/
+/forward/DNN/models/
+/forward/DNN/eval/

@@ -237,6 +237,7 @@ class eps_mu_DNN(nn.Module):
         # d = self.d(F.relu(out))
 
         w_expand = self.w.expand_as(e_Re)
+        # w_2 = self.w.expand(out.size()[0], self.flags.num_spec_points)
         j = torch.tensor([0+1j],dtype=torch.cfloat).expand_as(e_Re)
         if torch.cuda.is_available():
             j = j.cuda()
@@ -244,12 +245,12 @@ class eps_mu_DNN(nn.Module):
         eps = add(e_Re, mul(e_Im,j))
         mu = add(m_Re, mul(m_Im, j))
 
-        # n0 = sqrt(mul(mu,eps))
-        n = sqrt(mul(mu, eps))
+        n0 = sqrt(mul(mu,eps))
+        # n = sqrt(mul(mu, eps))
         # z = div(mu, n)
-        n1 = n.real.type(torch.cfloat)
-        n2 = n.imag.type(torch.cfloat)
-        n = add(n1, mul(abs(n2), j))
+        # n1 = n0.real.type(torch.cfloat)
+        # n2 = n0.imag.type(torch.cfloat)
+        # n0 = add(n1, mul(abs(n2), j))
 
         # TODO Initialize d to be cylinder height, but let it be a variable
         d_in = G[:, 1]
@@ -261,11 +262,11 @@ class eps_mu_DNN(nn.Module):
         # d = self.d.unsqueeze(1).expand_as(eps)
 
         # # Spatial dispersion
-        # theta = 0.0033*mul(mul(w_2,d),n0).type(torch.cfloat)
-        # magic = mul(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        # eps = mul(magic,eps)
-        # mu = mul(magic, mu)
-        # n = sqrt(mul(mu, eps))
+        theta = 0.0033*mul(mul(w_expand,d),n0).type(torch.cfloat)
+        magic = mul(tan(0.5*theta),0.5*theta).type(torch.cfloat)
+        eps = mul(magic,eps)
+        mu = mul(magic, mu)
+        n = sqrt(mul(mu, eps))
 
         self.eps_out = eps
         self.mu_out = mu
