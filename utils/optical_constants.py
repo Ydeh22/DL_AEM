@@ -7,8 +7,9 @@ import torch
 from math import pi
 from numpy import sqrt as root
 from torch import pow, add, mul, div, sqrt, square, \
-                     cos, sin, conj, exp, abs, arctan
+                     cos, sin, conj, exp, abs, arctan, tan
 from torch import square as sq
+from utils.custom_functions import real_check, imag_check
 
 def matrix_method_slab(er, mr, d, f):
 
@@ -117,11 +118,19 @@ class matrix_method_slab_debug:
         # n1 = n.real
         # n2 = F.relu(n.imag)
         # n = add(n1, mul(n2, j))
+
+        # Spatial dispersion
+        theta = 0.0033*mul(mul(w,d), n).type(torch.cfloat)
+        magic = mul(tan(0.5*theta),0.5*theta).type(torch.cfloat)
+        eps = mul(magic,eps)
+        mu = mul(magic, mu)
+        n = sqrt(mul(mu, eps))
+        # n = imag_check.apply(n)
+
+
         k = div(mul(w, n), c)
-        # k1 = k.real
-        # k2 = F.relu(k.imag)
-        # k = add(k1, mul(k2, j))
         z = sqrt(div(er, mr))
+        z = real_check.apply(z)
         M12_TE = 0.5 * 1j * mul((z - div(1,z)), (sin(mul(k, d))))
         M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1,z)), (sin(mul(k, d))))
         # M12_TE = 0.5*1j*mul((mul(div(1, mu), div(k, k0)) + mul(mu, div(k0, k))), (sin(mul(k, d))))
@@ -158,3 +167,4 @@ class matrix_method_slab_debug:
         self.T2 = T2
         self.T2 = T3
         self.PhiT2 = PhiT2
+
