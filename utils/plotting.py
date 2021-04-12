@@ -474,6 +474,7 @@ def HeatMapBVL(plot_x_name, plot_y_name, title,  save_name='HeatMap.png', HeatMa
         print("feature_1_list:",feature_1_list)
         #start plotting
         plt.plot(feature_1_list, bv_loss_list,'o-')
+        np.savetxt('loss_list.txt',bv_loss_list,delimiter='\t')
     else: #Or this is a 2 dimension HeatMap
         print("plotting 2 dimension HeatMap")
         #point_df = pd.DataFrame.from_records([point.to_dict() for point in HMpoint_list])

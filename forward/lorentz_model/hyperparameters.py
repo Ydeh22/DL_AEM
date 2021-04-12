@@ -10,7 +10,7 @@ OPTIM = "Adam"
 REG_SCALE = 1e-4
 BATCH_SIZE = 128
 EVAL_STEP = 10
-RECORD_STEP = 10
+RECORD_STEP = 50
 TRAIN_STEP =30000
 LEARN_RATE = 1e-3
 # DECAY_STEP = 25000 # This is for step decay, however we are using dynamic decaying
@@ -36,6 +36,7 @@ DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop u
 GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
 NORMALIZE_INPUT = True
 TEST_RATIO = 0.2
+DATA_REDUCE = 0
 
 # Running specific
 USE_CPU_ONLY = False

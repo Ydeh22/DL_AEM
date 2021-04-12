@@ -135,8 +135,8 @@ class LorentzDNN(nn.Module):
         # n0 = sqrt(mul(mu,eps))
         n = sqrt(mul(mu, eps))
         # z = div(mu, n)
-        n1 = n.real.type(torch.cfloat)
-        n2 = n.imag.type(torch.cfloat)
+        # n1 = n.real.type(torch.cfloat)
+        # n2 = n.imag.type(torch.cfloat)
 
         # TODO Initialize d to be cylinder height, but let it be a variable
         d_in = G[:, 1]

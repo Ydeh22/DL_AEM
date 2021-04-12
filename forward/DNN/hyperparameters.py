@@ -39,9 +39,10 @@ DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop u
 GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
 NORMALIZE_INPUT = True
 TEST_RATIO = 0.2
+DATA_REDUCE = 0
 
 # Running specific
 USE_CPU_ONLY = False
-MODEL_NAME  = '1k_Dataset'
+MODEL_NAME  = None
 EVAL_MODEL = "20k_Dataset"
 NUM_PLOT_COMPARE = 10

@@ -129,7 +129,7 @@ def importData(data_dir, file_select):
 
 def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=True,
                               data_dir=os.path.abspath(''), batch_size=128,
-                              rand_seed=1234, test_ratio = 0.2, shuffle = True):
+                              rand_seed=1234, test_ratio = 0.2, shuffle = True, dataset_size=0):
     """
 
       :param batch_size: size of the batch read every time
@@ -151,11 +151,18 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
 
+    indices = []
+    for i in range(1,len(geom)):
+        if geom[i,3] > 39:
+            indices.append(i)
+
     if (test_ratio > 0):
         print("Splitting data into training and test sets with a ratio of:", str(test_ratio))
-        dataset_size = len(geom)
-        # dataset_size = 1000
-        geom_Tr, geom_Te, scat_Tr, scat_Te = train_test_split(geom[:dataset_size], scat[:dataset_size],
+        if dataset_size != 0:
+            data_reduce = dataset_size
+        else:
+            data_reduce = len(geom)
+        geom_Tr, geom_Te, scat_Tr, scat_Te = train_test_split(geom[indices], scat[indices],
                                                                 test_size=test_ratio, random_state=rand_seed)
         print('Total number of training samples is {}'.format(len(geom_Tr)))
         print('Total number of test samples is {}'.format(len(geom_Te)))

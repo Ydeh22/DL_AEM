@@ -94,7 +94,7 @@ class Network(object):
         # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
         loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
         loss1 = 0
-        custom_loss = loss1 + loss2
+        custom_loss = loss1 + loss2*1000
         return custom_loss
 
 
@@ -151,11 +151,11 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.8)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.5)
                 elif ('_wp' in layer_name):
                     torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
                 elif ('_g' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
                         torch.nn.init.xavier_uniform_(child.weight)
@@ -245,25 +245,25 @@ class Network(object):
                         if j == b:
                             for k in range(self.flags.num_plot_compare):
 
-                                # f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
-                                #                  tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
-                                #                  logit2=spectra[k, :, 1].real.cpu().data.numpy(),
-                                #                  tr2 = spectra[k, :, 1].imag.cpu().data.numpy(),
-                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
-                                #                  num_points=self.flags.num_spec_points)
-                                # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
-                                #                     figure=f, global_step=epoch)
-
-                                logit1 = pred_t.cpu().data.numpy()
-                                tr1 = spectra[:,:,1].cpu().data.numpy()
-
-                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
-                                                 model=self.model, index=k, xmin=self.flags.freq_low,
-                                                    xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
-                                               num_osc=self.flags.num_lorentz_osc)
-                                self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
-                                                        ' Debug Optical Constants'.format(1),
+                                f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
+                                                 tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
+                                                 logit2=spectra[k, :, 1].real.cpu().data.numpy(),
+                                                 tr2 = spectra[k, :, 1].imag.cpu().data.numpy(),
+                                                 xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                                 num_points=self.flags.num_spec_points)
+                                self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
                                                     figure=f, global_step=epoch)
+
+                                # logit1 = pred_t.cpu().data.numpy()
+                                # tr1 = spectra[:,:,1].cpu().data.numpy()
+                                #
+                                # f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
+                                #                  model=self.model, index=k, xmin=self.flags.freq_low,
+                                #                     xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                #                num_osc=self.flags.num_lorentz_osc)
+                                # self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
+                                #                         ' Debug Optical Constants'.format(1),
+                                #                     figure=f, global_step=epoch)
 
 
 
@@ -330,7 +330,7 @@ class Network(object):
 
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 0.1
+                restart_lr = self.flags.lr * 1
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
