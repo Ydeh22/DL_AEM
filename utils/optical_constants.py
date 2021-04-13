@@ -53,27 +53,28 @@ def matrix_method_slab(er, mr, d, f):
     # n2 = F.relu(n.imag)
     # n = add(n1, mul(n2, j))
     k = div(mul(w, n), c)
+    k = imag_check.apply(k)
     # k1 = k.real
     # k2 = F.relu(k.imag)
     # k = add(k1, mul(k2, j))
     z = sqrt(div(mu, eps))
-
-    R2 = sq(abs(div((mr - n), (mr + n))))
-    PhiR2 = arctan(div(2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
-    T2 = exp(-2 * mul(k.imag, d)) * sq((div(n, mr)).real * sq(abs(div(2 * mr, (n + mr)))))
-    T3 = mul(exp(-2 * mul(k.imag, d)), sq(
-        (div(mul(n.real, mu.real)
-             + mul(n.imag, mu.imag), (sq(mu.real) +
-                                      sq(mu.imag)))) * m0 * sq(abs(div(2 * mr, (n + mr))))))
-    PhiT2 = arctan(div(-2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
+    print(z)
+    # R2 = sq(abs(div((mr - n), (mr + n))))
+    # PhiR2 = arctan(div(2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
+    # T2 = exp(-2 * mul(k.imag, d)) * sq((div(n, mr)).real * sq(abs(div(2 * mr, (n + mr)))))
+    # T3 = mul(exp(-2 * mul(k.imag, d)), sq(
+    #     (div(mul(n.real, mu.real)
+    #          + mul(n.imag, mu.imag), (sq(mu.real) +
+    #                                   sq(mu.imag)))) * m0 * sq(abs(div(2 * mr, (n + mr))))))
+    # PhiT2 = arctan(div(-2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
     #
-    # M12_TE = cos(mul(k, d)) + 0.5*1j*mul((mul(div(1, mr), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
-    # M22_TE = cos(mul(k, d)) - 0.5*1j*mul((mul(div(1, mr), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
-    # r = div(M12_TE,M22_TE)
-    # t = div(1, M22_TE)
+    M12_TE = cos(mul(k, d)) + 0.5*1j*mul((mul(div(1, mr), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
+    M22_TE = cos(mul(k, d)) - 0.5*1j*mul((mul(div(1, mr), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
+    r = div(M12_TE,M22_TE)
+    t = div(1, M22_TE)
     # T = (mul(t, conj(t)).real).float()
     # R = (mul(r, conj(r)).real).float()
-    return R2,T2
+    return r,t
 
 def lorentzian(w, w0, wp , g, eps_inf=0):
     num1 = mul(sq(wp), add(sq(w0), -sq(w)))

@@ -69,6 +69,8 @@ def read_flag():
     parser.add_argument('--normalize-input', default=NORMALIZE_INPUT, type=bool,
                         help='whether we should normalize the input or not')
     parser.add_argument('--test-ratio', default=TEST_RATIO, type=float, help='the ratio of test case')
+    parser.add_argument('--data-reduce', type=int, default=DATA_REDUCE,
+                        help='Reduces amount of training data used to specific value')
 
     # Running specific
     parser.add_argument('--eval-model', default=EVAL_MODEL, type=str,

@@ -30,7 +30,8 @@ def training_from_flag(flags):
                                                              batch_size=flags.batch_size,
                                                              normalize_input=flags.normalize_input,
                                                              data_dir=flags.data_dir,
-                                                             test_ratio=flags.test_ratio)
+                                                             test_ratio=flags.test_ratio,
+                                                             dataset_size=flags.data_reduce)
 
 
     # Reset the boundary if normalized
