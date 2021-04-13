@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.signal import argrelmax
 
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class Network(object):
@@ -85,16 +87,24 @@ class Network(object):
 
         if logit1 is None:
             return None
-        # loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
-        # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
-        # loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
-        # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
+        loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
+        loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
+        loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
         # custom_loss = loss1 + loss2 + loss3 + loss4
 
+        boundary_loss1 = torch.sum(F.relu(abs(logit1.real) - 1)).float()
+        boundary_loss2 = torch.sum(F.relu(abs(logit1.imag) - 1)).float()
+        boundary_loss3 = torch.sum(F.relu(abs(logit2.real) - 1)).float()
+        boundary_loss4 = torch.sum(F.relu(abs(logit2.imag) - 1)).float()
+        custom_loss = loss1 + loss2 + loss3 + loss4 + \
+                      boundary_loss1 + boundary_loss2 + boundary_loss3 + boundary_loss4
+
+
         # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
-        loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
-        loss1 = 0
-        custom_loss = loss1 + loss2*1000
+        # loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
+        # loss1 = 0
+        # custom_loss = loss1 + loss2*1000
         return custom_loss
 
 
@@ -151,11 +161,14 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.5)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.5)
+                    torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                    torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_g' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                    torch.nn.init.xavier_uniform_(child.weight)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
                         torch.nn.init.xavier_uniform_(child.weight)
@@ -188,6 +201,62 @@ class Network(object):
                     np.savetxt(fyt, spectra.cpu().data.numpy(), fmt='%.3f')
                     np.savetxt(fyp, logit.cpu().data.numpy(), fmt='%.3f')
         return Ypred_file, Ytruth_file
+
+    def record_weight(self, name='Weights', layer=None, batch=999, epoch=999):
+        """
+        Record the weights for a specific layer to tensorboard (save to file if desired)
+        :input: name: The name to save
+        :input: layer: The layer to check
+        """
+        if batch == 0:
+            weights = layer.weight.cpu().data.numpy()   # Get the weights
+
+            # if epoch == 0:
+            # np.savetxt('Training_Weights_Lorentz_Layer' + name,
+            #     weights, fmt='%.3f', delimiter=',')
+            # print(weights_layer.shape)
+
+            # Reshape the weights into a square dimension for plotting, zero padding if necessary
+            wmin = np.amin(np.asarray(weights.shape))
+            wmax = np.amax(np.asarray(weights.shape))
+            sq = int(np.floor(np.sqrt(wmin * wmax)) + 1)
+            diff = np.zeros((1, int(sq**2 - (wmin * wmax))), dtype='float64')
+            weights = weights.reshape((1, -1))
+            weights = np.concatenate((weights, diff), axis=1)
+            # f = plt.figure(figsize=(10, 5))
+            # c = plt.imshow(weights.reshape((sq, sq)), cmap=plt.get_cmap('viridis'))
+            # plt.colorbar(c, fraction=0.03)
+            f = plot_weights_3D(weights.reshape((sq, sq)), sq)
+            self.log.add_figure(tag='1_Weights_' + name + '_Layer'.format(1),
+                                figure=f, global_step=epoch)
+
+    def record_grad(self, name='Gradients', layer=None, batch=999, epoch=999):
+        """
+        Record the gradients for a specific layer to tensorboard (save to file if desired)
+        :input: name: The name to save
+        :input: layer: The layer to check
+        """
+        if batch == 0 and epoch > 0:
+            gradients = layer.weight.grad.cpu().data.numpy()
+
+            # if epoch == 0:
+            # np.savetxt('Training_Weights_Lorentz_Layer' + name,
+            #     weights, fmt='%.3f', delimiter=',')
+            # print(weights_layer.shape)
+
+            # Reshape the weights into a square dimension for plotting, zero padding if necessary
+            wmin = np.amin(np.asarray(gradients.shape))
+            wmax = np.amax(np.asarray(gradients.shape))
+            sq = int(np.floor(np.sqrt(wmin * wmax)) + 1)
+            diff = np.zeros((1, int(sq ** 2 - (wmin * wmax))), dtype='float64')
+            gradients = gradients.reshape((1, -1))
+            gradients = np.concatenate((gradients, diff), axis=1)
+            # f = plt.figure(figsize=(10, 5))
+            # c = plt.imshow(weights.reshape((sq, sq)), cmap=plt.get_cmap('viridis'))
+            # plt.colorbar(c, fraction=0.03)
+            f = plot_weights_3D(gradients.reshape((sq, sq)), sq)
+            self.log.add_figure(tag='1_Gradients_' + name + '_Layer'.format(1),
+                                figure=f, global_step=epoch)
 
     def train(self):
         """
@@ -230,7 +299,7 @@ class Network(object):
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
                 #                                                                            format="png",
                 #                                                                            directory=self.ckpt_dir)
-                # print(loss)
+                print(loss)
                 loss.backward()
 
                 # Clip gradients to help with training
@@ -239,31 +308,37 @@ class Network(object):
                         # torch.nn.utils.clip_grad_value_(self.model.parameters(), self.flags.grad_clip)
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.flags.grad_clip)
 
+                if epoch % self.flags.record_step == 0:
+                    self.record_grad(name='eps_w0', layer=self.model.eps_w0, batch=j, epoch=epoch)
+                    self.record_grad(name='eps_g', layer=self.model.eps_g, batch=j, epoch=epoch)
 
                 if epoch % self.flags.record_step == 0:
-                    for b in [0]:
+                    for b in range(10):
                         if j == b:
-                            for k in range(self.flags.num_plot_compare):
+                            for k in [0]:
+                            # for k in range(self.flags.num_plot_compare):
 
-                                f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
-                                                 tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
-                                                 logit2=spectra[k, :, 1].real.cpu().data.numpy(),
-                                                 tr2 = spectra[k, :, 1].imag.cpu().data.numpy(),
-                                                 xmin=self.flags.freq_low, xmax=self.flags.freq_high,
-                                                 num_points=self.flags.num_spec_points)
-                                self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
-                                                    figure=f, global_step=epoch)
-
-                                # logit1 = pred_t.cpu().data.numpy()
-                                # tr1 = spectra[:,:,1].cpu().data.numpy()
-                                #
-                                # f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
-                                #                  model=self.model, index=k, xmin=self.flags.freq_low,
-                                #                     xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
-                                #                num_osc=self.flags.num_lorentz_osc)
-                                # self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
-                                #                         ' Debug Optical Constants'.format(1),
+                                # f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
+                                #                  tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
+                                #                  logit2=spectra[k, :, 1].real.cpu().data.numpy(),
+                                #                  tr2 = spectra[k, :, 1].imag.cpu().data.numpy(),
+                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                #                  num_points=self.flags.num_spec_points)
+                                # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
                                 #                     figure=f, global_step=epoch)
+
+                                logit1 = pred_r.cpu().data.numpy()
+                                tr1 = spectra[:,:,0].cpu().data.numpy()
+                                # logit2 = pred_t.cpu().data.numpy()
+                                # tr2 = spectra[:,:,1].cpu().data.numpy()
+
+                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
+                                                 model=self.model, index=k, xmin=self.flags.freq_low,
+                                                    xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                               num_osc=self.flags.num_lorentz_osc)
+                                self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
+                                                        ' Debug Optical Constants'.format(1),
+                                                    figure=f, global_step=epoch)
 
 
 

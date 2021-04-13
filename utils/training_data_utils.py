@@ -151,9 +151,10 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
 
+    # indices = y_range
     indices = []
     for i in range(1,len(geom)):
-        if geom[i,3] > 39:
+        if geom[i,3] > 10:
             indices.append(i)
 
     if (test_ratio > 0):

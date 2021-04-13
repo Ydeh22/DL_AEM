@@ -9,8 +9,9 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from torch import pow, add, mul, div, sqrt, square, cos, sin, conj, abs, tan
+from torch import pow, add, mul, div, sqrt, square, cos, sin, conj, abs, tan, log, exp
 from utils.optical_constants import matrix_method_slab, lorentzian
+from utils.custom_functions import real_check, imag_check
 
 class LorentzDNN(nn.Module):
     def __init__(self, flags):
@@ -160,15 +161,15 @@ class LorentzDNN(nn.Module):
 
         # self.test_var = n
 
-        # r, t = matrix_method_slab(eps, mu, d, w_2)
-        # return r, t
+        r, t = matrix_method_slab(eps, mu, d, w_2)
+        return r, t
 
-        alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_2))
-        # print(alpha)
-        T = mul(div(4 * n.real, add(square(n.real + 1), square(n.imag))), alpha).float()
-        # R = square(div(abs(add(n.real,abs(n.imag))-1),abs(add(n.real,abs(n.imag))+1)))
-        R = square(div(abs(n-1),abs(n+1)))
-        return R,T
+        # alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_2))
+        # # print(alpha)
+        # T = mul(div(4 * n.real, add(square(n.real + 1), square(n.imag))), alpha).float()
+        # # R = square(div(abs(add(n.real,abs(n.imag))-1),abs(add(n.real,abs(n.imag))+1)))
+        # R = square(div(abs(n-1),abs(n+1)))
+        # return R,T
 
 
 class eps_mu_DNN(nn.Module):
