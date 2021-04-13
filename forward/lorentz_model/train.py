@@ -29,7 +29,8 @@ def training_from_flag(flags):
                                                               data_dir=flags.data_dir,
                                                               batch_size=flags.batch_size,
                                                               normalize_input=flags.normalize_input,
-                                                              test_ratio=flags.test_ratio)
+                                                              test_ratio=flags.test_ratio,
+                                                              shuffle=False)
 
     # Reset the boundary if normalized
     if flags.normalize_input:
@@ -44,7 +45,7 @@ def training_from_flag(flags):
 
     # Training process
     print("Start training now...")
-    ntwk.train()
+    ntwk.pre_train()
 
     # Do the house keeping, write the parameters and put into folder, also use pickle to save the flags object
     write_flags_and_BVE(flags, ntwk.best_validation_loss, ntwk.ckpt_dir)

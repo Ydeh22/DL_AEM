@@ -149,17 +149,18 @@ class LorentzDNN(nn.Module):
         # d = self.d.unsqueeze(1).expand_as(eps)
 
         # # Spatial dispersion
-        # theta = 0.0033*mul(mul(w_2,d),n0).type(torch.cfloat)
-        # magic = mul(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        # eps = mul(magic,eps)
-        # mu = mul(magic, mu)
-        # n = sqrt(mul(mu, eps))
+        theta = 0.0033*mul(mul(w_2,d),n).type(torch.cfloat)
+        magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
+        eps_av = mul(magic,eps)
+        mu_av = mul(magic, mu)
+        n_av = sqrt(mul(mu_av, eps_av))
 
-        self.eps_out = eps
-        self.mu_out = mu
-        self.n_out = n
+        self.eps_out = eps_av
+        self.mu_out = mu_av
+        self.n_out = imag_check.apply(n_av)
 
-        # self.test_var = n
+        # eps_av = imag_check.apply(eps_av)
+        # mu_av = imag_check.apply(mu_av)
 
         r, t = matrix_method_slab(eps, mu, d, w_2)
         return r, t

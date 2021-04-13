@@ -37,28 +37,35 @@ def matrix_method_slab(er, mr, d, f):
     #     mr = mr.cuda()
 
     j = torch.tensor([0 + 1j], dtype=torch.cfloat).expand_as(er)
+    error_term = torch.tensor([1e-5 + 1j*1e-5], dtype=torch.cfloat).expand_as(er)
     if cuda:
         j = j.cuda()
+        error_term = error_term.cuda()
 
     eps = mul(e0,er)
     mu = mul(m0,mr)
     # e1 = er.real
     # e2 = F.relu(er.imag)
     # er = add(e1, mul(e2, j))
-    # mu1 = mr.real
-    # mu2 = F.relu(mr.imag)
-    # mr = add(mu1, mul(mu2, j))
     n = sqrt(mul(mr, er))
-    # n1 = n.real
-    # n2 = F.relu(n.imag)
-    # n = add(n1, mul(n2, j))
+    n = imag_check.apply(n)
+    # k = div(mul(w, n), c)
+    # z = sqrt(div(mu, eps + 1e-5))
+
+    # # Spatial dispersion
+    # theta = mul(w * d, sqrt(mul(eps, mu))).type(torch.cfloat)
+    # magic = div(tan(0.5 * theta), 0.5 * theta).type(torch.cfloat)
+    # eps_av = mul(magic, er)
+    # mu_av = mul(magic, mr)
+    # n_av = sqrt(mul(mu_av, eps_av))
+    # k = div(mul(w, n_av), c)
+    # z = sqrt(div(eps_av, mu_av + 1e-5))
+
     k = div(mul(w, n), c)
-    k = imag_check.apply(k)
-    # k1 = k.real
-    # k2 = F.relu(k.imag)
-    # k = add(k1, mul(k2, j))
-    z = sqrt(div(mu, eps))
-    print(z)
+    z = sqrt(div(er, mr + error_term))
+    z = real_check.apply(z)
+
+    print(n,k,z)
     # R2 = sq(abs(div((mr - n), (mr + n))))
     # PhiR2 = arctan(div(2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
     # T2 = exp(-2 * mul(k.imag, d)) * sq((div(n, mr)).real * sq(abs(div(2 * mr, (n + mr)))))
@@ -67,11 +74,16 @@ def matrix_method_slab(er, mr, d, f):
     #          + mul(n.imag, mu.imag), (sq(mu.real) +
     #                                   sq(mu.imag)))) * m0 * sq(abs(div(2 * mr, (n + mr))))))
     # PhiT2 = arctan(div(-2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
-    #
-    M12_TE = cos(mul(k, d)) + 0.5*1j*mul((mul(div(1, mr), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
-    M22_TE = cos(mul(k, d)) - 0.5*1j*mul((mul(div(1, mr), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
-    r = div(M12_TE,M22_TE)
-    t = div(1, M22_TE)
+
+    # M12_TE = cos(mul(k, d)) + 0.5*1j*mul((mul(div(1, mr + 1e-5), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
+    # M22_TE = cos(mul(k, d)) - 0.5*1j*mul((mul(div(1, mr + 1e-5), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
+
+    M12_TE = 0.5 * 1j * mul((z - div(1, z)), (sin(mul(k, d))))
+    M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1, z)), (sin(mul(k, d))))
+
+    r = div(M12_TE,M22_TE + error_term)
+    t = div(1, M22_TE + error_term)
+
     # T = (mul(t, conj(t)).real).float()
     # R = (mul(r, conj(r)).real).float()
     return r,t
@@ -109,19 +121,12 @@ class matrix_method_slab_debug:
 
         eps = mul(e0, er)
         mu = mul(m0, mr)
-        # e1 = er.real
-        # e2 = F.relu(er.imag)
-        # er = add(e1, mul(e2, j))
-        # mu1 = mr.real
-        # mu2 = F.relu(mr.imag)
-        # mr = add(mu1, mul(mu2, j))
         n = sqrt(mul(mr, er))
         # n1 = n.real
         # n2 = F.relu(n.imag)
         # n = add(n1, mul(n2, j))
 
         # # Spatial dispersion
-        # theta = 0.0033*mul(mul(w,d), n).type(torch.cfloat)
         theta = mul(w*d, sqrt(mul(eps,mu))).type(torch.cfloat)
         magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
         eps_av = mul(magic, er)

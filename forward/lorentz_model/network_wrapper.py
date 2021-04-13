@@ -91,15 +91,15 @@ class Network(object):
         loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
         loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
         loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
-        # custom_loss = loss1 + loss2 + loss3 + loss4
+        custom_loss = loss1 + loss2 + loss3 + loss4
 
-        boundary_loss1 = torch.sum(F.relu(abs(logit1.real) - 1)).float()
-        boundary_loss2 = torch.sum(F.relu(abs(logit1.imag) - 1)).float()
-        boundary_loss3 = torch.sum(F.relu(abs(logit2.real) - 1)).float()
-        boundary_loss4 = torch.sum(F.relu(abs(logit2.imag) - 1)).float()
-        custom_loss = loss1 + loss2 + loss3 + loss4 + \
-                      boundary_loss1 + boundary_loss2 + boundary_loss3 + boundary_loss4
-
+        # boundary_loss1 = torch.sum(F.relu(abs(logit1.real) - 1)).float()
+        # boundary_loss2 = torch.sum(F.relu(abs(logit1.imag) - 1)).float()
+        # boundary_loss3 = torch.sum(F.relu(abs(logit2.real) - 1)).float()
+        # boundary_loss4 = torch.sum(F.relu(abs(logit2.imag) - 1)).float()
+        # custom_loss = loss1 + loss2 + loss3 + loss4 + \
+        #               boundary_loss1 + boundary_loss2 + boundary_loss3 + boundary_loss4
+        # custom_loss *= 1000
 
         # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
         # loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
@@ -161,13 +161,13 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.5)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
                     torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
                     torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_g' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.05)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
                     torch.nn.init.xavier_uniform_(child.weight)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
@@ -271,7 +271,7 @@ class Network(object):
         # Construct optimizer after the model moved to GPU
         self.optm = self.make_optimizer()
         self.lr_scheduler = self.make_lr_scheduler()
-        # self.init_weights()
+        self.init_weights()
 
         # # Start a tensorboard session for logging loss and training images
         tb = program.TensorBoard()
@@ -299,7 +299,7 @@ class Network(object):
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
                 #                                                                            format="png",
                 #                                                                            directory=self.ckpt_dir)
-                print(loss)
+                # print(loss)
                 loss.backward()
 
                 # Clip gradients to help with training
@@ -327,15 +327,15 @@ class Network(object):
                                 # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
                                 #                     figure=f, global_step=epoch)
 
-                                logit1 = pred_r.cpu().data.numpy()
-                                tr1 = spectra[:,:,0].cpu().data.numpy()
+                                logit1 = square(abs(pred_t)).cpu().data.numpy()
+                                tr1 = square(abs(spectra[:,:,1])).cpu().data.numpy()
                                 # logit2 = pred_t.cpu().data.numpy()
                                 # tr2 = spectra[:,:,1].cpu().data.numpy()
 
                                 f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
                                                  model=self.model, index=k, xmin=self.flags.freq_low,
                                                     xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
-                                               num_osc=self.flags.num_lorentz_osc)
+                                               num_osc=self.flags.num_lorentz_osc, y_axis='Transmission')
                                 self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
                                                         ' Debug Optical Constants'.format(1),
                                                     figure=f, global_step=epoch)
@@ -418,7 +418,139 @@ class Network(object):
 
 
 
+    def pre_train(self):
+        """
+        The major training function. This starts the training using parameters given in the flags
+        :return: None
+        """
+        print("Pre-train on test spectrum")
+        cuda = True if torch.cuda.is_available() else False
+        if cuda:
+            self.model.cuda()
 
+        # Construct optimizer after the model moved to GPU
+        self.optm = self.make_optimizer()
+        self.lr_scheduler = self.make_lr_scheduler()
+        self.init_weights()
+
+        # # Start a tensorboard session for logging loss and training images
+        tb = program.TensorBoard()
+        tb.configure(argv=[None, '--logdir', self.ckpt_dir])
+        url = tb.launch()
+        print("TensorBoard started at %s" % url)
+
+        for epoch in range(self.flags.train_step):
+            # print("This is training Epoch {}".format(epoch))
+            # Set to Training Mode
+            train_loss = []
+            train_loss_eval_mode_list = []
+            self.model.train()
+            for j, (geometry, spectra) in enumerate(self.train_loader):
+
+                spectra_select = 0
+                if j==0:
+                    if cuda:
+                        geometry = geometry[0:5].cuda()                          # Put data onto GPU
+                        spectra = spectra[0:5].cuda()                            # Put data onto GPU
+
+                    self.optm.zero_grad()                                   # Zero the gradient first
+                    pred_r, pred_t = self.model(geometry)            # Get the output
+                    loss = self.make_custom_loss(pred_r, pred_t, spectra)
+                    # print(abs(spectra[:,:,1]))
+                    # if j == 0 and epoch == 0:
+                    #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
+                    #                                                                            format="png",
+                    #                                                                            directory=self.ckpt_dir)
+                    # print(loss)
+                    loss.backward()
+
+                    if epoch % self.flags.record_step == 0:
+                        self.record_grad(name='eps_w0', layer=self.model.eps_w0, batch=j, epoch=epoch)
+                        self.record_grad(name='eps_g', layer=self.model.eps_g, batch=j, epoch=epoch)
+
+                    if epoch % self.flags.record_step == 0:
+
+                        for k in [0]:
+
+                            # f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
+                            #                  tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
+                            #                  logit2=spectra[k, :, 1].real.cpu().data.numpy(),
+                            #                  tr2 = spectra[k, :, 1].imag.cpu().data.numpy(),
+                            #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                            #                  num_points=self.flags.num_spec_points)
+                            # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
+                            #                     figure=f, global_step=epoch)
+
+                            logit1 = square(abs(pred_t)).cpu().data.numpy()
+                            tr1 = square(abs(spectra[:,:,1])).cpu().data.numpy()
+                            # logit2 = pred_t.cpu().data.numpy()
+                            # tr2 = spectra[:,:,1].cpu().data.numpy()
+
+                            f = plot_debug(logit1=logit1[k,:],tr1 = tr1[k,:], logit2=None,tr2 = None,
+                                             model=self.model, index=0, xmin=self.flags.freq_low,
+                                                xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                           num_osc=self.flags.num_lorentz_osc, y_axis='Transmission')
+                            self.log.add_figure(tag=' Debug Optical Constants'.format(1),
+                                                figure=f, global_step=epoch)
+
+
+
+                    self.optm.step()                                        # Move one step the optimizer
+                    train_loss.append(np.copy(loss.cpu().data.numpy()))     # Aggregate the loss
+
+                    self.model.eval()
+                    pred_r, pred_t = self.model(geometry)  # Get the output
+
+                    loss1 = nn.functional.mse_loss(pred_r[0].real.float(), spectra[0, :, 0].real.float(), reduction='mean')
+                    loss2 = nn.functional.mse_loss(pred_r[0].imag.float(), spectra[0, :, 0].imag.float(), reduction='mean')
+                    loss3 = nn.functional.mse_loss(pred_t[0].real.float(), spectra[0, :, 1].real.float(), reduction='mean')
+                    loss4 = nn.functional.mse_loss(pred_t[0].imag.float(), spectra[0, :, 1].imag.float(), reduction='mean')
+                    loss = loss1 + loss2 + loss3 + loss4
+
+                    train_loss_eval_mode_list.append(np.copy(loss.cpu().data.numpy()))
+                    self.model.train()
+
+
+
+
+            # Calculate the avg loss of training
+            train_avg_loss = np.mean(train_loss)
+            train_avg_eval_mode_loss = np.mean(train_loss_eval_mode_list)
+
+            if epoch % self.flags.eval_step == 0:           # For eval steps, do the evaluations and tensor board
+                # Record the training loss to tensorboard
+                self.log.add_scalar('Loss/ Training Loss', train_avg_loss, epoch)
+                self.log.add_scalar('Loss/ Batchnorm Training Loss', train_avg_eval_mode_loss, epoch)
+
+                print("This is Epoch %d, training loss %.5f" \
+                      % (epoch, train_avg_eval_mode_loss))
+
+                # Model improving, save the model
+                if train_avg_eval_mode_loss < self.best_validation_loss:
+                    self.best_validation_loss = train_avg_eval_mode_loss
+                    self.save()
+                    print("Saving the model...")
+
+                    if self.best_validation_loss < self.flags.stop_threshold:
+                        print("Training finished EARLIER at epoch %d, reaching loss of %.5f" %\
+                              (epoch, self.best_validation_loss))
+                        return None
+
+            # # Learning rate decay upon plateau
+            self.lr_scheduler.step(train_avg_loss)
+            # # self.lr_scheduler.step()
+
+
+            if epoch > 10:
+                restart_lr = self.flags.lr * 1
+                if self.flags.use_warm_restart:
+                    if epoch % self.flags.lr_warm_restart == 0:
+                        for param_group in self.optm.param_groups:
+                            param_group['lr'] = restart_lr
+                            print('Resetting learning rate to %.5f' % restart_lr)
+
+        # print('Finished')
+        self.log.close()
 
 
 
