@@ -119,18 +119,19 @@ class matrix_method_slab_debug:
         # n2 = F.relu(n.imag)
         # n = add(n1, mul(n2, j))
 
-        # Spatial dispersion
-        theta = 0.0033*mul(mul(w,d), n).type(torch.cfloat)
-        magic = mul(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        eps = mul(magic,eps)
-        mu = mul(magic, mu)
-        n = sqrt(mul(mu, eps))
+        # # Spatial dispersion
+        # theta = 0.0033*mul(mul(w,d), n).type(torch.cfloat)
+        theta = mul(w*d, sqrt(mul(eps,mu))).type(torch.cfloat)
+        magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
+        eps_av = mul(magic, er)
+        mu_av = mul(magic, mr)
+        n_av = sqrt(mul(mu_av, eps_av))
         # n = imag_check.apply(n)
-
 
         k = div(mul(w, n), c)
         z = sqrt(div(er, mr))
-        z = real_check.apply(z)
+        # z = real_check.apply(z)
+
         M12_TE = 0.5 * 1j * mul((z - div(1,z)), (sin(mul(k, d))))
         M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1,z)), (sin(mul(k, d))))
         # M12_TE = 0.5*1j*mul((mul(div(1, mu), div(k, k0)) + mul(mu, div(k0, k))), (sin(mul(k, d))))
@@ -153,9 +154,12 @@ class matrix_method_slab_debug:
         self.k0 = k0
         self.k = k
         self.n = n
+        self.n_av = n_av
         self.z = z
         self.eps = er
+        self.eps_av = eps_av
         self.mu = mr
+        self.mu_av = mu_av
         self.M12 = M12_TE
         self.M22 = M22_TE
         self.r = r
@@ -165,6 +169,8 @@ class matrix_method_slab_debug:
         self.R2 = R2
         self.PhiR2 = PhiR2
         self.T2 = T2
-        self.T2 = T3
+        self.T3 = T3
         self.PhiT2 = PhiT2
+        self.theta = theta
+        self.magic = magic
 
