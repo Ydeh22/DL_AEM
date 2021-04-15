@@ -56,24 +56,25 @@ def matrix_method_slab(er, mr, d, f):
     # eps_av = mul(magic, er)
     # mu_av = mul(magic, mr)
     # n_av = sqrt(mul(mu_av, eps_av))
-    # k = div(mul(w, n_av), c)
-    # z = sqrt(div(eps_av, mu_av + 1e-5))
+    # n = imag_check.apply(n)
 
-    k = div(mul(w, n), c)
-    z = sqrt(div(er, mr + 1e-5))
-    z = real_check.apply(z)
+    eps_av = er
+    mu_av = mr
+    n_av = n
+    k = div(mul(w, n_av), c)
+    z = sqrt(div(eps_av, mu_av))
 
-    # R2 = sq(abs(div((mr - n), (mr + n))))
-    r = div((mr - n), (mr + n))
-    # phiR2 = arctan(div(2 * n.imag, (1 - sq(n.real) - sq(n.imag))))
-    # T2 = exp(-2 * mul(k.imag, d)) * sq((div(n, mr)).real * sq(abs(div(2 * mr, (n + mr)))))
+    # R2 = sq(abs(div((mu_av - n_av), (mu_av + n_av))))
+    r = div((mu_av - n_av), (mu_av + n_av))
+    # phiR = arctan(div(r2.imag, r2.real))
+    # phiR2 = arctan(div(2 * n_av.imag, (1 - sq(n_av.real) - sq(n_av.imag))))
+    # T2 = exp(-2 * mul(k.imag, d)) * sq((div(n_av, mu_av)).real * sq(abs(div(2 * mu_av, (n_av + mu_av)))))
     # T3 = mul(exp(-2 * mul(k.imag, d)), sq(
-    #     (div(mul(n.real, mu.real)
-    #          + mul(n.imag, mu.imag), (sq(mu.real) +
-    #                                   sq(mu.imag)))) * m0 * sq(abs(div(2 * mr, (n + mr))))))
-    # t = exp(-2 * mul(k.imag, d)) * (div(n, mr).real * abs(div(2 * mr, (n + mr))))
-    t = exp(-2 * mul(k.imag, d)) * div(2*mr,(n+mr))
-    # phiT2 = arctan(div(lt.imag, lt.real))
+    #     (div(mul(n_av.real, mu.real)
+    #          + mul(n_av.imag, mu.imag), (sq(mu.real) +
+    #                                      sq(mu.imag)))) * m0 * sq(abs(div(2 * mu_av, (n_av + mu_av))))))
+    t = exp(-1 * mul(k.imag, d)) * div(2 * mr, (n + mr)) * sqrt(div(n, mr))
+    # phiT2 = arctan(div(t2.imag, t2.real))
 
     # M12_TE = cos(mul(k, d)) + 0.5*1j*mul((mul(div(1, mr + 1e-5), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
     # M22_TE = cos(mul(k, d)) - 0.5*1j*mul((mul(div(1, mr + 1e-5), div(k, k0)) + mul(mr, div(k0, k))), (sin(mul(k, d))))
@@ -129,14 +130,16 @@ class matrix_method_slab_debug:
         # # Spatial dispersion
         theta = mul(w*d, sqrt(mul(eps,mu))).type(torch.cfloat)
         magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        eps_av = mul(magic, er)
-        mu_av = mul(magic, mr)
-        n_av = sqrt(mul(mu_av, eps_av))
+        # eps_av = mul(magic, er)
+        # mu_av = mul(magic, mr)
+        # n_av = sqrt(mul(mu_av, eps_av))
         # n = imag_check.apply(n)
 
-        k = div(mul(w, n), c)
-        z = sqrt(div(er, mr))
-        # z = real_check.apply(z)
+        eps_av = er
+        mu_av = mr
+        n_av = n
+        k = div(mul(w, n_av), c)
+        z = sqrt(div(eps_av, mu_av))
 
         M12_TE = 0.5 * 1j * mul((z - div(1,z)), (sin(mul(k, d))))
         M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1,z)), (sin(mul(k, d))))
@@ -147,15 +150,17 @@ class matrix_method_slab_debug:
         # T = (mul(t, conj(t)).real).float()
         # R = (mul(r, conj(r)).real).float()
 
-        R2 = sq(abs(div((mr - n), (mr + n))))
-        phiR2 = arctan(div(2 * n.imag, (1 - sq(n.real) - sq(n.imag))))
-        T2 = exp(-2 * mul(k.imag, d)) * sq((div(n, mr)).real * sq(abs(div(2 * mr, (n + mr)))))
+        R2 = sq(abs(div((mu_av - n_av), (mu_av + n_av))))
+        r2 = div((mu_av - n_av), (mu_av + n_av))
+        phiR = arctan(div(r2.imag,r2.real))
+        phiR2 = arctan(div(2 * n_av.imag, (1 - sq(n_av.real) - sq(n_av.imag))))
+        T2 = exp(-2 * mul(k.imag, d)) * sq((div(n_av, mu_av)).real * sq(abs(div(2 * mu_av, (n_av + mu_av)))))
         T3 = mul(exp(-2 * mul(k.imag, d)), sq(
-            (div(mul(n.real, mu.real)
-                 + mul(n.imag, mu.imag), (sq(mu.real) +
-                                          sq(mu.imag)))) * m0 * sq(abs(div(2 * mr, (n + mr))))))
-        lt = div(2 * mr, (n + mr))
-        phiT2 = arctan(div(lt.imag, lt.real))
+            (div(mul(n_av.real, mu.real)
+                 + mul(n_av.imag, mu.imag), (sq(mu.real) +
+                                          sq(mu.imag)))) * m0 * sq(abs(div(2 * mu_av, (n_av + mu_av))))))
+        t2 = exp(-1 * mul(k.imag, d)) * div(2*mr,(n+mr)) * sqrt(div(n , mr))
+        phiT2 = arctan(div(t2.imag, t2.real))
 
         self.w = f
         self.k0 = k0
@@ -171,6 +176,8 @@ class matrix_method_slab_debug:
         self.M22 = M22_TE
         self.r = r
         self.t = t
+        self.r2 = r2
+        self.t2 = t2
         self.T = sq(abs(t))
         self.R = sq(abs(r))
         self.R2 = R2
