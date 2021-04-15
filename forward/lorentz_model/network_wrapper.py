@@ -161,14 +161,14 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
-                    torch.nn.init.xavier_uniform_(child.weight)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
+                    # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
-                    torch.nn.init.xavier_uniform_(child.weight)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                    # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_g' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
-                    torch.nn.init.xavier_uniform_(child.weight)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
+                    # torch.nn.init.xavier_uniform_(child.weight)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
                         torch.nn.init.xavier_uniform_(child.weight)
@@ -301,6 +301,14 @@ class Network(object):
                 #                                                                            directory=self.ckpt_dir)
                 # print(loss)
                 loss.backward()
+
+                grads = [x.grad for x in self.model.parameters()]
+                grads_sum = torch.tensor([0], dtype=torch.float32).cuda()
+                for x in grads:
+                    grads_sum += torch.sum(x)
+                # grads_sum = torch.sum(grads_sum)
+
+                self.log.add_scalar('Grad sum', grads_sum, int(epoch*len(self.train_loader) + j))
 
                 # Clip gradients to help with training
                 if self.flags.use_clip:

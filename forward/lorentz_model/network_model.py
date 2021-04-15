@@ -30,10 +30,10 @@ class LorentzDNN(nn.Module):
         cuda = True if torch.cuda.is_available() else False
         if cuda:
             self.w = torch.tensor(w_numpy).cuda()
-            # self.d = torch.tensor([0.5], requires_grad=True).cuda()
+            self.d = torch.tensor([0.5], requires_grad=True).cuda()
         else:
             self.w = torch.tensor(w_numpy)
-            # self.d = torch.tensor([0.5], requires_grad=True)
+            self.d = torch.tensor([0.5], requires_grad=True)
 
         """
         General layer definitions:
@@ -72,7 +72,7 @@ class LorentzDNN(nn.Module):
         for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
             #print(out.size())
             if ind < len(self.linears) - 0:
-                out = F.relu(bn(fc(out)))                                   # ReLU + BN + Linear
+                out = F.leaky_relu_(bn(fc(out)))                                   # ReLU + BN + Linear
             else:
                 out = bn(fc(out))
 
@@ -121,18 +121,18 @@ class LorentzDNN(nn.Module):
         e1 = torch.sum(e1, 1).type(torch.cfloat)
         e2 = torch.sum(e2, 1).type(torch.cfloat)
         eps_inf = e_inf.expand_as(e1).type(torch.cfloat)
-        e1 += eps_inf
+        e1 += 1+eps_inf
         mu1 = torch.sum(mu1, 1).type(torch.cfloat)
         mu2 = torch.sum(mu2, 1).type(torch.cfloat)
         mu_inf = m_inf.expand_as(mu1).type(torch.cfloat)
-        mu1 += mu_inf
+        mu1 += 1+mu_inf
         j = torch.tensor([0+1j],dtype=torch.cfloat).expand_as(e2)
         if torch.cuda.is_available():
             j = j.cuda()
 
         eps = add(e1, mul(e2,j))
         mu = add(mu1, mul(mu2, j))
-
+        # print(eps,mu)
         # n0 = sqrt(mul(mu,eps))
         n = sqrt(mul(mu, eps))
         # z = div(mu, n)
@@ -140,13 +140,15 @@ class LorentzDNN(nn.Module):
         # n2 = n.imag.type(torch.cfloat)
 
         # TODO Initialize d to be cylinder height, but let it be a variable
-        d_in = G[:, 1]
-        if self.flags.normalize_input:
-            d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
+        # d_in = G[:, 1]
+        # if self.flags.normalize_input:
+        #     d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
+        #
+        # self.d_out = d_in
+        self.d_out = self.d
+        # d = d_in.unsqueeze(1).expand_as(eps)
+        d = self.d.unsqueeze(1).expand_as(eps)
 
-        self.d_out = d_in
-        d = d_in.unsqueeze(1).expand_as(eps)
-        # d = self.d.unsqueeze(1).expand_as(eps)
 
         # # Spatial dispersion
         theta = 0.0033*mul(mul(w_2,d),n).type(torch.cfloat)

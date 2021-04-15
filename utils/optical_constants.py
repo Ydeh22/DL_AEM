@@ -37,10 +37,8 @@ def matrix_method_slab(er, mr, d, f):
     #     mr = mr.cuda()
 
     j = torch.tensor([0 + 1j], dtype=torch.cfloat).expand_as(er)
-    error_term = torch.tensor([1e-5 + 1j*1e-5], dtype=torch.cfloat).expand_as(er)
     if cuda:
         j = j.cuda()
-        error_term = error_term.cuda()
 
     eps = mul(e0,er)
     mu = mul(m0,mr)
@@ -62,10 +60,9 @@ def matrix_method_slab(er, mr, d, f):
     # z = sqrt(div(eps_av, mu_av + 1e-5))
 
     k = div(mul(w, n), c)
-    z = sqrt(div(er, mr + error_term))
+    z = sqrt(div(er, mr + 1e-5))
     z = real_check.apply(z)
 
-    print(n,k,z)
     # R2 = sq(abs(div((mr - n), (mr + n))))
     # PhiR2 = arctan(div(2 * n.imag, (1 - sq(n.imag) - sq(n.imag))))
     # T2 = exp(-2 * mul(k.imag, d)) * sq((div(n, mr)).real * sq(abs(div(2 * mr, (n + mr)))))
@@ -81,8 +78,8 @@ def matrix_method_slab(er, mr, d, f):
     M12_TE = 0.5 * 1j * mul((z - div(1, z)), (sin(mul(k, d))))
     M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1, z)), (sin(mul(k, d))))
 
-    r = div(M12_TE,M22_TE + error_term)
-    t = div(1, M22_TE + error_term)
+    r = div(M12_TE,M22_TE + 1e-5)
+    t = div(1, M22_TE + 1e-5)
 
     # T = (mul(t, conj(t)).real).float()
     # R = (mul(r, conj(r)).real).float()
