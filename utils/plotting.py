@@ -63,8 +63,8 @@ def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, 
     if title is not None:
         plt.title(title)
 
-    at = AnchoredText("eps_inf: " + str(np.round(model.eps_params_out[3][index].cpu().data.numpy(), 3)) + \
-                        ", mu_inf: " + str(np.round(model.mu_params_out[3][index].cpu().data.numpy(), 3)) + \
+    at = AnchoredText("eps_inf: " + str(np.round(1+model.eps_params_out[3][index].cpu().data.numpy(), 3)) + \
+                        ", mu_inf: " + str(np.round(1+model.mu_params_out[3][index].cpu().data.numpy(), 3)) + \
                         ", d: " + str(np.round(model.d_out[index].cpu().data.numpy(), 3)),
                       prop=dict(size=10), frameon=True,
                       loc='lower left'
@@ -95,7 +95,7 @@ def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, 
     return f1
 
 def plot_complex(logit1, tr1, logit2 = None, tr2 = None, xmin=20, xmax=40, num_points=1001, title=None, figsize=[10, 5],
-                    y_axis='Test Variable', label_y1='Re', label_y2='Im'):
+                    y_axis='Test Variable', label_y1='T', label_y2='R'):
     """
     Function to plot the comparison for predicted spectra and truth spectra
     :param Ypred:  Predicted spectra, this should be a list of number of dimension 300, numpy

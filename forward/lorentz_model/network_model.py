@@ -135,36 +135,29 @@ class LorentzDNN(nn.Module):
         # print(eps,mu)
         # n0 = sqrt(mul(mu,eps))
         n = sqrt(mul(mu, eps))
+        n = imag_check.apply(n)
         # z = div(mu, n)
         # n1 = n.real.type(torch.cfloat)
         # n2 = n.imag.type(torch.cfloat)
 
         # TODO Initialize d to be cylinder height, but let it be a variable
-        # d_in = G[:, 1]
-        # if self.flags.normalize_input:
-        #     d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
-        #
-        # self.d_out = d_in
-        self.d_out = self.d
-        # d = d_in.unsqueeze(1).expand_as(eps)
-        d = self.d.unsqueeze(1).expand_as(eps)
+        d_in = G[:, 1]
+        if self.flags.normalize_input:
+            d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
 
+        self.d_out = d_in
+        # self.d_out = self.d
+        d = d_in.unsqueeze(1).expand_as(eps)
+        # d = self.d.unsqueeze(1).expand_as(eps)
 
-        # # Spatial dispersion
-        theta = 0.0033*mul(mul(w_2,d),n).type(torch.cfloat)
-        magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        eps_av = mul(magic,eps)
-        mu_av = mul(magic, mu)
-        n_av = sqrt(mul(mu_av, eps_av))
+        self.eps_out = eps
+        self.mu_out = mu
+        self.n_out = n
 
-        self.eps_out = eps_av
-        self.mu_out = mu_av
-        self.n_out = imag_check.apply(n_av)
+        r = div((mu - n), (mu + n))
+        alpha = exp(-0.0033 * 2 * math.pi * mul(mul(d, abs(n.imag)), w_2))
+        t = alpha * div(2 * mu, (n + mu)) * sqrt(div(n, mu))
 
-        # eps_av = imag_check.apply(eps_av)
-        # mu_av = imag_check.apply(mu_av)
-
-        r, t = matrix_method_slab(eps, mu, d, w_2)
         return r, t
 
         # alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_2))

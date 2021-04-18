@@ -111,7 +111,7 @@ class matrix_method_slab_debug:
         e0 = (10 ** 7) / (4 * pi * c ** 2)
         m0 = 4 * pi * 10 ** (-7)
         z0 = root(m0 / e0)
-
+        p = 1 * 1e-6
         d = d * 1e-6
         w = 2 * pi * f * 1e12
         k0 = w / c
@@ -128,7 +128,7 @@ class matrix_method_slab_debug:
         # n = add(n1, mul(n2, j))
 
         # # Spatial dispersion
-        theta = mul(w*d, sqrt(mul(eps,mu))).type(torch.cfloat)
+        theta = mul(w*p, sqrt(mul(eps,mu))).type(torch.cfloat)
         magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
         # eps_av = mul(magic, er)
         # mu_av = mul(magic, mr)
@@ -137,6 +137,7 @@ class matrix_method_slab_debug:
 
         eps_av = er
         mu_av = mr
+        n = imag_check.apply(n)
         n_av = n
         k = div(mul(w, n_av), c)
         z = sqrt(div(eps_av, mu_av))
