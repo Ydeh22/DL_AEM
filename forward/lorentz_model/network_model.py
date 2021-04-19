@@ -154,9 +154,9 @@ class LorentzDNN(nn.Module):
         self.mu_out = mu
         self.n_out = n
 
-        r = div((mu - n), (mu + n))
+        r = div((mu - n), (mu + n + 1e-5))
         alpha = exp(-0.0033 * 2 * math.pi * mul(mul(d, abs(n.imag)), w_2))
-        t = alpha * div(2 * mu, (n + mu)) * sqrt(div(n, mu))
+        t = alpha * div(2 * mu, (n + mu + 1e-5)) * sqrt(div(n, mu + 1e-5))
 
         return r, t
 

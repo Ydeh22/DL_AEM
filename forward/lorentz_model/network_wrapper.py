@@ -315,13 +315,12 @@ class Network(object):
                 # print(loss)
                 loss.backward()
 
-                grads = [x.grad for x in self.model.parameters()]
-                grads_sum = torch.tensor([0], dtype=torch.float32).cuda()
-                for x in grads:
-                    grads_sum += torch.sum(x)
-                # grads_sum = torch.sum(grads_sum)
-
-                self.log.add_scalar('Grad sum', grads_sum, int(epoch*len(self.train_loader) + j))
+                # grads = [x.grad for x in self.model.parameters()]
+                # grads_sum = torch.tensor([0], dtype=torch.float32).cuda()
+                # for x in grads:
+                #     grads_sum += torch.sum(x)
+                # # grads_sum = torch.sum(grads_sum)
+                # self.log.add_scalar('Grad sum', grads_sum, int(epoch*len(self.train_loader) + j))
 
                 # Clip gradients to help with training
                 if self.flags.use_clip:
