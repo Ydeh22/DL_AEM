@@ -9,6 +9,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from torch import sum
 from torch import pow, add, mul, div, sqrt, square, cos, sin, conj, abs, tan, log, exp
 from utils.optical_constants import matrix_method_slab, lorentzian
 from utils.custom_functions import real_check, imag_check
@@ -72,19 +73,19 @@ class LorentzDNN(nn.Module):
         for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
             #print(out.size())
             if ind < len(self.linears) - 0:
-                out = F.leaky_relu_(bn(fc(out)))                                   # ReLU + BN + Linear
+                out = F.relu(bn(fc(out)))                                   # ReLU + BN + Linear
             else:
                 out = bn(fc(out))
 
-        e_w0 = F.relu(self.eps_w0(F.relu(out)))
-        e_wp = F.relu(self.eps_wp(F.relu(out)))
-        e_g = F.relu(self.eps_g(F.relu(out)))
-        e_inf = F.relu(self.eps_inf(F.relu(out)))
+        e_w0 = F.leaky_relu(self.eps_w0(F.leaky_relu(out)))
+        e_wp = F.leaky_relu(self.eps_wp(F.leaky_relu(out)))
+        e_g = F.leaky_relu(self.eps_g(F.leaky_relu(out)))
+        e_inf = F.leaky_relu(self.eps_inf(F.leaky_relu(out)))
 
-        m_w0 = F.relu(self.mu_w0(F.relu(out)))
-        m_wp = F.relu(self.mu_wp(F.relu(out)))
-        m_g = F.relu(self.mu_g(F.relu(out)))
-        m_inf = F.relu(self.mu_inf(F.relu(out)))
+        m_w0 = F.leaky_relu(self.mu_w0(F.leaky_relu(out)))
+        m_wp = F.leaky_relu(self.mu_wp(F.leaky_relu(out)))
+        m_g = F.leaky_relu(self.mu_g(F.leaky_relu(out)))
+        m_inf = F.leaky_relu(self.mu_inf(F.leaky_relu(out)))
 
         # d = self.d(F.relu(out))
 
@@ -117,6 +118,7 @@ class LorentzDNN(nn.Module):
         # Define dielectric functions
 
         e1, e2 = lorentzian(w_expand, e_w0, e_wp, e_g)
+
         mu1, mu2 = lorentzian(w_expand, m_w0, m_wp, m_g)
         e1 = torch.sum(e1, 1).type(torch.cfloat)
         e2 = torch.sum(e2, 1).type(torch.cfloat)
@@ -132,10 +134,11 @@ class LorentzDNN(nn.Module):
 
         eps = add(e1, mul(e2,j))
         mu = add(mu1, mul(mu2, j))
+
         # print(eps,mu)
         # n0 = sqrt(mul(mu,eps))
         n = sqrt(mul(mu, eps))
-        n = imag_check.apply(n)
+        # n = imag_check.apply(n)
         # z = div(mu, n)
         # n1 = n.real.type(torch.cfloat)
         # n2 = n.imag.type(torch.cfloat)
@@ -155,8 +158,14 @@ class LorentzDNN(nn.Module):
         self.n_out = n
 
         r = div((mu - n), (mu + n + 1e-5))
+        # if torch.isnan(sum(sum(r))) or torch.isinf(sum(sum(r))):
+        #     print('r is invalid')
         alpha = exp(-0.0033 * 2 * math.pi * mul(mul(d, abs(n.imag)), w_2))
+        # if torch.isnan(sum(sum(alpha))) or torch.isinf(sum(sum(alpha))):
+        #     print('alpha is invalid')
         t = alpha * div(2 * mu, (n + mu + 1e-5)) * sqrt(div(n, mu + 1e-5))
+        # if torch.isnan(sum(sum(t))) or torch.isinf(sum(sum(t))):
+        #     print('t is invalid')
 
         return r, t
 

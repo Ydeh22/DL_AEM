@@ -115,7 +115,7 @@ class Network(object):
         # loss1 = 0
         custom_loss = loss1 + loss2
         #
-        custom_loss *= 10000
+        custom_loss *= self.flags.loss_factor
         return custom_loss
 
     def init_weights(self):
@@ -276,6 +276,9 @@ class Network(object):
         The major training function. This starts the training using parameters given in the flags
         :return: None
         """
+
+        # torch.autograd.set_detect_anomaly(True)
+
         print("Starting training process")
         cuda = True if torch.cuda.is_available() else False
         if cuda:
@@ -287,10 +290,10 @@ class Network(object):
         self.init_weights()
 
         # # Start a tensorboard session for logging loss and training images
-        tb = program.TensorBoard()
-        tb.configure(argv=[None, '--logdir', self.ckpt_dir])
-        url = tb.launch()
-        print("TensorBoard started at %s" % url)
+        # tb = program.TensorBoard()
+        # tb.configure(argv=[None, '--logdir', self.ckpt_dir])
+        # url = tb.launch()
+        # print("TensorBoard started at %s" % url)
 
         for epoch in range(self.flags.train_step):
             # print("This is training Epoch {}".format(epoch))
@@ -306,7 +309,12 @@ class Network(object):
 
                 self.optm.zero_grad()                                   # Zero the gradient first
                 pred_r, pred_t = self.model(geometry)            # Get the output
+
                 loss = self.make_custom_loss(pred_r, pred_t, spectra)
+
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print('Loss is invalid at iteration ', epoch)
+
                 # print(abs(spectra[:,:,1]))
                 # if j == 0 and epoch == 0:
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
@@ -577,7 +585,7 @@ class Network(object):
 
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 1
+                restart_lr = self.flags.lr * 0.1
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
