@@ -154,7 +154,7 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     # indices = y_range
     indices = []
     for i in range(1,len(geom)):
-        if geom[i,3] > 39:
+        if geom[i,3] > 0:
             indices.append(i)
 
     if (test_ratio > 0):

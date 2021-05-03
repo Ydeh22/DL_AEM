@@ -289,11 +289,11 @@ class Network(object):
         self.lr_scheduler = self.make_lr_scheduler()
         self.init_weights()
 
-        # # Start a tensorboard session for logging loss and training images
-        # tb = program.TensorBoard()
-        # tb.configure(argv=[None, '--logdir', self.ckpt_dir])
-        # url = tb.launch()
-        # print("TensorBoard started at %s" % url)
+        # Start a tensorboard session for logging loss and training images
+        tb = program.TensorBoard()
+        tb.configure(argv=[None, '--logdir', self.ckpt_dir])
+        url = tb.launch()
+        print("TensorBoard started at %s" % url)
 
         for epoch in range(self.flags.train_step):
             # print("This is training Epoch {}".format(epoch))

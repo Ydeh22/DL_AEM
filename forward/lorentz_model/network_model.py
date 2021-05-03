@@ -143,6 +143,13 @@ class LorentzDNN(nn.Module):
         # n1 = n.real.type(torch.cfloat)
         # n2 = n.imag.type(torch.cfloat)
 
+        # # Spatial dispersion
+        theta = mul(0.1361*w_2, sqrt(mul(eps,mu))).type(torch.cfloat)
+        magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
+        eps = mul(magic, eps)
+        mu = mul(magic, mu)
+        n = sqrt(mul(mu, eps))
+
         # TODO Initialize d to be cylinder height, but let it be a variable
         d_in = G[:, 1]
         if self.flags.normalize_input:
