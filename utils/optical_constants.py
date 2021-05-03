@@ -50,17 +50,17 @@ def matrix_method_slab(er, mr, d, f):
     # k = div(mul(w, n), c)
     # z = sqrt(div(mu, eps + 1e-5))
 
-    # # Spatial dispersion
-    # theta = mul(w * d, sqrt(mul(eps, mu))).type(torch.cfloat)
-    # magic = div(tan(0.5 * theta), 0.5 * theta).type(torch.cfloat)
-    # eps_av = mul(magic, er)
-    # mu_av = mul(magic, mr)
-    # n_av = sqrt(mul(mu_av, eps_av))
-    # n = imag_check.apply(n)
+    # Spatial dispersion
+    theta = mul(w * d, sqrt(mul(eps, mu))).type(torch.cfloat)
+    magic = div(tan(0.5 * theta), 0.5 * theta).type(torch.cfloat)
+    eps_av = mul(magic, er)
+    mu_av = mul(magic, mr)
+    n_av = sqrt(mul(mu_av, eps_av))
+    n = imag_check.apply(n)
 
-    eps_av = er
-    mu_av = mr
-    n_av = n
+    # eps_av = er
+    # mu_av = mr
+    # n_av = n
     k = div(mul(w, n_av), c)
     z = sqrt(div(eps_av, mu_av))
 
@@ -111,7 +111,7 @@ class matrix_method_slab_debug:
         e0 = (10 ** 7) / (4 * pi * c ** 2)
         m0 = 4 * pi * 10 ** (-7)
         z0 = root(m0 / e0)
-        p = 1 * 1e-6
+        p = 6 * 1e-6
         d = d * 1e-6
         w = 2 * pi * f * 1e12
         k0 = w / c
@@ -128,19 +128,21 @@ class matrix_method_slab_debug:
         # n = add(n1, mul(n2, j))
 
         # # Spatial dispersion
-        theta = mul(w*p, sqrt(mul(eps,mu))).type(torch.cfloat)
+        theta = mul(w*d, sqrt(mul(eps,mu))).type(torch.cfloat)
         magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        # eps_av = mul(magic, er)
-        # mu_av = mul(magic, mr)
-        # n_av = sqrt(mul(mu_av, eps_av))
+        eps_av = mul(magic, er)
+        mu_av = mul(magic, mr)
+        n_av = sqrt(mul(mu_av, eps_av))
         # n = imag_check.apply(n)
 
-        eps_av = er
-        mu_av = mr
-        n = imag_check.apply(n)
-        n_av = n
+        # eps_av = er
+        # mu_av = mr
+        # n = imag_check.apply(n)
+        # n_av = n
+        n_av = imag_check.apply(n_av)
         k = div(mul(w, n_av), c)
         z = sqrt(div(eps_av, mu_av))
+        z = real_check.apply(z)
 
         M12_TE = 0.5 * 1j * mul((z - div(1,z)), (sin(mul(k, d))))
         M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1,z)), (sin(mul(k, d))))
