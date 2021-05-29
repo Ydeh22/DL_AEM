@@ -9,7 +9,10 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from torch import pow, add, mul, div, sqrt, square, cos, sin, conj, abs, tan, log, exp
+from torch import pow, add, mul, div, sqrt, square, cos\
+    , sin, conj, abs, tan, log, exp, arctan
+from numpy import sqrt as root
+from numpy import pi
 from utils.optical_constants import matrix_method_slab, lorentzian
 from utils.custom_functions import real_check, imag_check
 
@@ -33,7 +36,7 @@ class LorentzDNN(nn.Module):
             self.d = torch.tensor([0.5], requires_grad=True).cuda()
         else:
             self.w = torch.tensor(w_numpy)
-            self.d = torch.tensor([0.5], requires_grad=True)
+            self.d = torch.tensor([1.5], requires_grad=True)
 
         """
         General layer definitions:
@@ -134,7 +137,7 @@ class LorentzDNN(nn.Module):
         mu = add(mu1, mul(mu2, j))
         # print(eps,mu)
         # n0 = sqrt(mul(mu,eps))
-        n = sqrt(mul(mu, eps))
+        # n = sqrt(mul(mu, eps))
         # z = div(mu, n)
         # n1 = n.real.type(torch.cfloat)
         # n2 = n.imag.type(torch.cfloat)
@@ -148,7 +151,8 @@ class LorentzDNN(nn.Module):
         self.d_out = self.d
         # d = d_in.unsqueeze(1).expand_as(eps)
         d = self.d.unsqueeze(1).expand_as(eps)
-
+        p = G[:, 2].unsqueeze(1).expand_as(eps)
+        h = G[:, 1].unsqueeze(1).expand_as(eps)
 
         # # Spatial dispersion
         theta = 0.0033*mul(mul(w_2,d),n).type(torch.cfloat)
@@ -157,14 +161,26 @@ class LorentzDNN(nn.Module):
         mu_av = mul(magic, mu)
         n_av = sqrt(mul(mu_av, eps_av))
 
-        self.eps_out = eps_av
-        self.mu_out = mu_av
-        self.n_out = imag_check.apply(n_av)
+        # Spatial dispersion
+        theta = 2 * arctan(0.0033 * pi * w_2 * d * sqrt(mul(eps, mu)))
+        magic = div(0.5 * theta, tan(0.5 * theta))
+        eps_eff = mul(magic, eps)
+        mu_eff = mul(magic, mu)
+        n_eff = sqrt(mul(eps_eff, mu_eff))
+        n = n_eff.real + 1j * abs(n_eff.imag)
+        z_eff = sqrt(div(mu_eff, eps_eff))
+        z = abs(z_eff.real) + 1j * z_eff.imag
 
-        # eps_av = imag_check.apply(eps_av)
-        # mu_av = imag_check.apply(mu_av)
+        self.eps_out = eps_eff
+        self.mu_out = mu_eff
+        self.n_out = n
 
-        r, t = matrix_method_slab(eps, mu, d, w_2)
+        r, t, = transfer_matrix(n, z, d, w_2)
+
+        emb = 6.5 * (p / 6) - 0.5 * h
+        r = r * exp(-1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
+        t = t * exp(-1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
+
         return r, t
 
         # alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_2))
@@ -175,114 +191,21 @@ class LorentzDNN(nn.Module):
         # return R,T
 
 
-class eps_mu_DNN(nn.Module):
-    def __init__(self, flags):
-        super(eps_mu_DNN, self).__init__()
-        self.flags = flags
+def transfer_matrix(n,z,d,f):
+    c = 3e8
+    e0 = (10 ** 7) / (4 * pi * c ** 2)
+    m0 = 4 * pi * 10 ** (-7)
+    z0 = root(m0 / e0)
+    d = d * 1e-6
+    w = 2 * pi * f * 1e12
+    k0 = w / c
 
+    k = div(mul(w, n), c)
 
-        # Create the constant for mapping the frequency w
-        w_numpy = np.arange(flags.freq_low, flags.freq_high,
-                            (flags.freq_high - flags.freq_low) / self.flags.num_spec_points)
+    M12_TE = 0.5 * 1j * mul((z - div(1, z + 1e-5)), (sin(mul(k, d))))
+    M22_TE = cos(mul(k, d)) - 0.5 * 1j * mul((z + div(1, z + 1e-5)), (sin(mul(k, d))))
 
-        # Create eps_inf variable, currently set to a constant value
-        # self.epsilon_inf = torch.tensor([5+0j],dtype=torch.cfloat)
+    r = div(M12_TE,M22_TE + 1e-5)
+    t = div(1, M22_TE + 1e-5)
 
-        # Create the frequency tensor from numpy array, put variables on cuda if available
-        cuda = True if torch.cuda.is_available() else False
-        if cuda:
-            self.w = torch.tensor(w_numpy).cuda()
-            # self.d = torch.tensor([0.5], requires_grad=True).cuda()
-        else:
-            self.w = torch.tensor(w_numpy)
-            # self.d = torch.tensor([0.5], requires_grad=True)
-
-        """
-        General layer definitions:
-        """
-        # Linear Layer and Batch_norm Layer definitions here
-        self.linears = nn.ModuleList([])
-        self.bn_linears = nn.ModuleList([])
-        for ind, fc_num in enumerate(flags.linear[0:-1]):               # Excluding the last one as we need intervals
-            self.linears.append(nn.Linear(fc_num, flags.linear[ind + 1], bias=True))
-            # torch.nn.init.uniform_(self.linears[ind].weight, a=1, b=2)
-
-            self.bn_linears.append(nn.BatchNorm1d(flags.linear[ind + 1], track_running_stats=True, affine=True))
-
-        layer_size = flags.linear[-1]
-
-        # Last layer is the Lorentzian parameter layer
-        self.eps_Re = nn.Linear(layer_size, self.flags.num_spec_points, bias=True)
-        self.eps_Im = nn.Linear(layer_size, self.flags.num_spec_points, bias=False)
-        self.mu_Re = nn.Linear(layer_size, self.flags.num_spec_points, bias=True)
-        self.mu_Im = nn.Linear(layer_size, self.flags.num_spec_points, bias=False)
-
-
-    def forward(self, G):
-        """
-        The forward function which defines how the network is connected
-        :param G: The input geometry (Since this is a forward network)
-        :return: S: The 300 dimension spectra
-        """
-        out = G
-
-        # For the linear part
-        for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
-            #print(out.size())
-            if ind < len(self.linears) - 0:
-                out = F.relu(bn(fc(out)))                                   # ReLU + BN + Linear
-            else:
-                out = bn(fc(out))
-
-        e_Re = self.eps_Re(out)
-        e_Im = F.relu(self.eps_Im(F.relu(out)))
-        m_Re = self.mu_Re(out)
-        m_Im = F.relu(self.mu_Im(F.relu(out)))
-        # d = self.d(F.relu(out))
-
-        w_expand = self.w.expand_as(e_Re)
-        # w_2 = self.w.expand(out.size()[0], self.flags.num_spec_points)
-        j = torch.tensor([0+1j],dtype=torch.cfloat).expand_as(e_Re)
-        if torch.cuda.is_available():
-            j = j.cuda()
-
-        eps = add(e_Re, mul(e_Im,j))
-        mu = add(m_Re, mul(m_Im, j))
-
-        n0 = sqrt(mul(mu,eps))
-        # n = sqrt(mul(mu, eps))
-        # z = div(mu, n)
-        # n1 = n0.real.type(torch.cfloat)
-        # n2 = n0.imag.type(torch.cfloat)
-        # n0 = add(n1, mul(abs(n2), j))
-
-        # TODO Initialize d to be cylinder height, but let it be a variable
-        d_in = G[:, 1]
-        if self.flags.normalize_input:
-            d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
-
-        self.d_out = d_in
-        d = d_in.unsqueeze(1).expand_as(eps)
-        # d = self.d.unsqueeze(1).expand_as(eps)
-
-        # # Spatial dispersion
-        theta = 0.0033*mul(mul(w_expand,d),n0).type(torch.cfloat)
-        magic = mul(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        eps = mul(magic,eps)
-        mu = mul(magic, mu)
-        n = sqrt(mul(mu, eps))
-
-        self.eps_out = eps
-        self.mu_out = mu
-        self.n_out = n
-
-        # self.test_var = n
-        # r, t = matrix_method_slab(eps, mu, d, w_2)
-        # return r, t
-
-        alpha = torch.exp(-0.0033 * 4 * math.pi * mul(mul(d, abs(n.imag)), w_expand))
-        # print(alpha)
-        T = mul(div(4 * n.real, add(square(n.real + 1), square(n.imag))), alpha).float()
-        # R = square(div(abs(add(n.real,abs(n.imag))-1),abs(add(n.real,abs(n.imag))+1)))
-        R = square(div(abs(n-1),abs(n+1)))
-        return R,T
+    return r,t
