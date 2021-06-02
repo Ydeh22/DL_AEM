@@ -111,6 +111,25 @@ def check_data_distribution(data_dir):
     plt.tight_layout()
     plt.show()
 
+def check_param_file_distribution(param_dir):
+    train_data_files = []
+    file_list = os.listdir(param_dir)
+    data = None
+    for ind, file in enumerate(file_list):
+        if file.endswith('.txt'):
+            if 'master' in file:
+                # train_data_files.append(file)
+                if data is None:
+                    data = np.loadtxt(file, skiprows=1, delimiter='\t')
+                else:
+                    d = np.loadtxt(file, skiprows=1, delimiter='\t')
+                    data = np.vstack((data, d))
+    # print(data.shape[1])
+    df = pd.DataFrame(data)
+    hist = df.hist(bins=13, figsize=(10, 5))
+    plt.tight_layout()
+    plt.show()
+
 def importData(data_dir, file_select):
     # Import raw data into python, should be either for training set or evaluation set
     train_data_files = []
