@@ -111,6 +111,25 @@ def check_data_distribution(data_dir):
     plt.tight_layout()
     plt.show()
 
+def check_param_file_distribution(param_dir):
+    train_data_files = []
+    file_list = os.listdir(param_dir)
+    data = None
+    for ind, file in enumerate(file_list):
+        if file.endswith('.txt'):
+            if 'master' in file:
+                # train_data_files.append(file)
+                if data is None:
+                    data = np.loadtxt(file, skiprows=1, delimiter='\t')
+                else:
+                    d = np.loadtxt(file, skiprows=1, delimiter='\t')
+                    data = np.vstack((data, d))
+    # print(data.shape[1])
+    df = pd.DataFrame(data)
+    hist = df.hist(bins=13, figsize=(10, 5))
+    plt.tight_layout()
+    plt.show()
+
 def importData(data_dir, file_select):
     # Import raw data into python, should be either for training set or evaluation set
     train_data_files = []
@@ -147,14 +166,14 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     s11_im = importData(os.path.join(data_dir, 'training_data'), 'S11(Im)')
     s21_re = importData(os.path.join(data_dir, 'training_data'), 'S21(Re)')
     s21_im = importData(os.path.join(data_dir, 'training_data'), 'S21(Im)')
-    s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
-    s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
+    s11 = np.expand_dims(s11_re - 1j * s11_im, axis=2)
+    s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
 
     # indices = y_range
     indices = []
     for i in range(1,len(geom)):
-        if geom[i,3] > 0:
+        if geom[i,3] > 39:
             indices.append(i)
 
     if (test_ratio > 0):
@@ -175,8 +194,8 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
         s11_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S11(Im)')
         s21_re = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Re)')
         s21_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Im)')
-        s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
-        s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
+        s11 = np.expand_dims(s11_re - 1j * s11_im, axis=2)
+        s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
         scat_Te = np.concatenate((s11, s21), axis=2)
 
     print('Generating torch datasets')
