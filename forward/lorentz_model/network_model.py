@@ -153,7 +153,9 @@ class LorentzDNN(nn.Module):
         d = d_in.unsqueeze(1).expand_as(eps)
         # d = self.d.unsqueeze(1).expand_as(eps)
         p = G[:, 2].unsqueeze(1).expand_as(eps)
-        h = G[:, 1].unsqueeze(1).expand_as(eps)
+        if self.flags.normalize_input:
+            p = p * 0.5 * (self.flags.geoboundary[6]-self.flags.geoboundary[2]) + (self.flags.geoboundary[6]+self.flags.geoboundary[2]) * 0.5
+
 
         # # Spatial dispersion
         theta = 2 * arctan(0.0033 * pi * w_2 * d * sqrt(mul(eps, mu)))
@@ -171,9 +173,9 @@ class LorentzDNN(nn.Module):
 
         r, t, = transfer_matrix(n, z, d, w_2)
 
-        emb = 6.5 * (p / 6) - 0.5 * h
-        r = r * exp(1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
-        t = t * exp(1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
+        # emb = 6.5 * (p / 6) - 0.5 * d
+        # r = r * exp(1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
+        # t = t * exp(1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
 
         return r, t
 

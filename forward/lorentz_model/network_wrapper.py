@@ -87,13 +87,13 @@ class Network(object):
 
         if logit1 is None:
             return None
-        # loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
-        # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
-        # loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
-        # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
-        # # loss1 = 0
-        # # loss2 = 0
-        # custom_loss = loss1 + loss2 + loss3 + loss4
+        loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
+        loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
+        loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
+        # # # loss1 = 0
+        # # # loss2 = 0
+        custom_loss = loss1 + loss2 + loss3 + loss4
 
 
         # loss1 = nn.functional.smooth_l1_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
@@ -112,9 +112,10 @@ class Network(object):
 
         loss1 = nn.functional.mse_loss(square(abs(logit1)).float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
         loss2 = nn.functional.mse_loss(square(abs(logit2)).float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
-        # loss1 = 0
-        custom_loss = loss1 + loss2
-        #
+        loss3 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        # # loss1 = 0
+        custom_loss = loss1 + loss2 + loss3
+        # #
         custom_loss *= self.flags.loss_factor
         return custom_loss
 
@@ -123,16 +124,16 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=3)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.02)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_g' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_inf' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.03)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 else:
                     if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
@@ -209,10 +210,11 @@ class Network(object):
                     if cuda:
                         geometry = geometry.cuda()
                         spectra = spectra.cuda()
-                    logit,w0,wp,g = self.model(geometry)
+                    pred_r, pred_t = self.model(geometry)  # Get the output
+
                     np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyt, spectra.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyp, logit.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyt, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyp, square(abs(pred_t)).cpu().data.numpy(), fmt='%.3f')
         return Ypred_file, Ytruth_file
 
     def record_weight(self, name='Weights', layer=None, batch=999, epoch=999):
@@ -315,6 +317,7 @@ class Network(object):
                 if torch.isnan(loss) or torch.isinf(loss):
                     print('Loss is invalid at iteration ', epoch)
 
+
                 # print(abs(spectra[:,:,1]))
                 # if j == 0 and epoch == 0:
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
@@ -346,14 +349,14 @@ class Network(object):
                             # for k in [0]:
                             for k in range(self.flags.num_plot_compare):
 
-                                f = plot_complex(logit1=square(abs(pred_t[k, :])).cpu().data.numpy(),
-                                                 tr1 = square(abs(spectra[k,:,1])).cpu().data.numpy(),
-                                                 logit2=square(abs(pred_r[k, :])).cpu().data.numpy(),
-                                                 tr2 = square(abs(spectra[k,:,0])).cpu().data.numpy(),
-                                                 xmin=self.flags.freq_low, xmax=self.flags.freq_high,
-                                                 num_points=self.flags.num_spec_points)
-                                self.log.add_figure(tag='Test ' + str(k) +') Sample T,R Spectra'.format(1),
-                                                    figure=f, global_step=epoch)
+                                # f = plot_complex(logit1=square(abs(pred_t[k, :])).cpu().data.numpy(),
+                                #                  tr1 = square(abs(spectra[k,:,1])).cpu().data.numpy(),
+                                #                  logit2=square(abs(pred_r[k, :])).cpu().data.numpy(),
+                                #                  tr2 = square(abs(spectra[k,:,0])).cpu().data.numpy(),
+                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                #                  num_points=self.flags.num_spec_points)
+                                # self.log.add_figure(tag='Test ' + str(k) +') Sample T,R Spectra'.format(1),
+                                #                     figure=f, global_step=epoch)
 
                                 # f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
                                 #                  tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
@@ -368,16 +371,19 @@ class Network(object):
                                 # tr1 = square(abs(spectra[:, :, 1])).cpu().data.numpy()
                                 # logit2 = square(abs(pred_r)).cpu().data.numpy()
                                 # tr2 = square(abs(spectra[:, :, 0])).cpu().data.numpy()
-                                # # logit2 = pred_t.cpu().data.numpy()
-                                # # tr2 = spectra[:,:,1].cpu().data.numpy()
-                                #
-                                # f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
-                                #                  model=self.model, index=k, xmin=self.flags.freq_low,
-                                #                     xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
-                                #                num_osc=self.flags.num_lorentz_osc, y_axis='Transmission')
-                                # self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
-                                #                         ' Debug Optical Constants'.format(1),
-                                #                     figure=f, global_step=epoch)
+
+                                logit1 = pred_t.imag.cpu().data.numpy()
+                                tr1 = spectra[:,:,1].imag.cpu().data.numpy()
+                                logit2 = pred_r.imag.cpu().data.numpy()
+                                tr2 = spectra[:,:,0].imag.cpu().data.numpy()
+
+                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
+                                                 model=self.model, index=k, xmin=self.flags.freq_low,
+                                                    xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                                               num_osc=self.flags.num_lorentz_osc, y_axis='Transmission')
+                                self.log.add_figure(tag='Test ' + str(k) + ' Batch ' + str(b) +
+                                                        ' Debug Optical Constants'.format(1),
+                                                    figure=f, global_step=epoch)
 
 
 
@@ -448,7 +454,8 @@ class Network(object):
 
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 1
+                # restart_lr = self.flags.lr * 0.01
+                restart_lr = 5e-4
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
@@ -585,7 +592,7 @@ class Network(object):
 
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 0.1
+                # restart_lr = self.flags.lr * 0.01
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
