@@ -33,10 +33,10 @@ class LorentzDNN(nn.Module):
         cuda = True if torch.cuda.is_available() else False
         if cuda:
             self.w = torch.tensor(w_numpy).cuda()
-            self.d = torch.tensor([0.5], requires_grad=True).cuda()
+            # self.d = torch.tensor([1.5], requires_grad=True).cuda()
         else:
             self.w = torch.tensor(w_numpy)
-            self.d = torch.tensor([1.5], requires_grad=True)
+            # self.d = torch.tensor([1.5], requires_grad=True)
 
         """
         General layer definitions:
@@ -79,15 +79,15 @@ class LorentzDNN(nn.Module):
             else:
                 out = bn(fc(out))
 
-        e_w0 = F.relu(self.eps_w0(F.relu(out)))
-        e_wp = F.relu(self.eps_wp(F.relu(out)))
-        e_g = F.relu(self.eps_g(F.relu(out)))
-        e_inf = F.relu(self.eps_inf(F.relu(out)))
+        e_w0 = F.leaky_relu(self.eps_w0(F.leaky_relu(out)))
+        e_wp = F.leaky_relu(self.eps_wp(F.leaky_relu(out)))
+        e_g = F.leaky_relu(self.eps_g(F.leaky_relu(out)))
+        e_inf = F.leaky_relu(self.eps_inf(F.leaky_relu(out)))
 
-        m_w0 = F.relu(self.mu_w0(F.relu(out)))
-        m_wp = F.relu(self.mu_wp(F.relu(out)))
-        m_g = F.relu(self.mu_g(F.relu(out)))
-        m_inf = F.relu(self.mu_inf(F.relu(out)))
+        m_w0 = F.leaky_relu(self.mu_w0(F.leaky_relu(out)))
+        m_wp = F.leaky_relu(self.mu_wp(F.leaky_relu(out)))
+        m_g = F.leaky_relu(self.mu_g(F.leaky_relu(out)))
+        m_inf = F.leaky_relu(self.mu_inf(F.leaky_relu(out)))
 
         # d = self.d(F.relu(out))
 
@@ -119,16 +119,16 @@ class LorentzDNN(nn.Module):
 
         # Define dielectric functions
 
-        e1, e2 = lorentzian(w_expand, e_w0, e_wp, e_g)
-        mu1, mu2 = lorentzian(w_expand, m_w0, m_wp, m_g)
+        e1, e2 = lorentzian(w_expand, abs(e_w0), abs(e_wp), abs(e_g))
+        mu1, mu2 = lorentzian(w_expand, abs(m_w0), abs(m_wp), abs(m_g))
         e1 = torch.sum(e1, 1).type(torch.cfloat)
         e2 = torch.sum(e2, 1).type(torch.cfloat)
         eps_inf = e_inf.expand_as(e1).type(torch.cfloat)
-        e1 += 1+eps_inf
+        e1 += 1+abs(eps_inf)
         mu1 = torch.sum(mu1, 1).type(torch.cfloat)
         mu2 = torch.sum(mu2, 1).type(torch.cfloat)
         mu_inf = m_inf.expand_as(mu1).type(torch.cfloat)
-        mu1 += 1+mu_inf
+        mu1 += 1+abs(mu_inf)
         j = torch.tensor([0+1j],dtype=torch.cfloat).expand_as(e2)
         if torch.cuda.is_available():
             j = j.cuda()
@@ -138,30 +138,26 @@ class LorentzDNN(nn.Module):
         # print(eps,mu)
         # n0 = sqrt(mul(mu,eps))
         # n = sqrt(mul(mu, eps))
+        # n = n.real + 1j*abs(n.imag)
         # z = div(mu, n)
         # n1 = n.real.type(torch.cfloat)
         # n2 = n.imag.type(torch.cfloat)
 
         # TODO Initialize d to be cylinder height, but let it be a variable
-        # d_in = G[:, 1]
-        # if self.flags.normalize_input:
-        #     d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
-        #
-        # self.d_out = d_in
-        self.d_out = self.d
-        # d = d_in.unsqueeze(1).expand_as(eps)
-        d = self.d.unsqueeze(1).expand_as(eps)
+        d_in = G[:, 1]
+        if self.flags.normalize_input:
+            d_in = d_in * 0.5 * (self.flags.geoboundary[5]-self.flags.geoboundary[1]) + (self.flags.geoboundary[5]+self.flags.geoboundary[1]) * 0.5
+
+        self.d_out = d_in
+        # self.d_out = self.d
+        d = d_in.unsqueeze(1).expand_as(eps)
+        # d = self.d.unsqueeze(1).expand_as(eps)
         p = G[:, 2].unsqueeze(1).expand_as(eps)
-        h = G[:, 1].unsqueeze(1).expand_as(eps)
+        if self.flags.normalize_input:
+            p = p * 0.5 * (self.flags.geoboundary[6]-self.flags.geoboundary[2]) + (self.flags.geoboundary[6]+self.flags.geoboundary[2]) * 0.5
+
 
         # # Spatial dispersion
-        theta = 0.0033*mul(mul(w_2,d),n).type(torch.cfloat)
-        magic = div(tan(0.5*theta),0.5*theta).type(torch.cfloat)
-        eps_av = mul(magic,eps)
-        mu_av = mul(magic, mu)
-        n_av = sqrt(mul(mu_av, eps_av))
-
-        # Spatial dispersion
         theta = 2 * arctan(0.0033 * pi * w_2 * d * sqrt(mul(eps, mu)))
         magic = div(0.5 * theta, tan(0.5 * theta))
         eps_eff = mul(magic, eps)
@@ -177,9 +173,9 @@ class LorentzDNN(nn.Module):
 
         r, t, = transfer_matrix(n, z, d, w_2)
 
-        emb = 6.5 * (p / 6) - 0.5 * h
-        r = r * exp(-1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
-        t = t * exp(-1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
+        # emb = 6.5 * (p / 6) - 0.5 * d
+        # r = r * exp(1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
+        # t = t * exp(1 / 300 * 2 * pi * 1j * 2 * emb * w_2)
 
         return r, t
 

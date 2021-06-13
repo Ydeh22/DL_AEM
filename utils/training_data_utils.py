@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 import torch
 
-def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False, spectra=True):
+def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False, spectra=True, opt_const=False):
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -36,12 +36,17 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 S11_im = h5['S-Parameters']['S11 (Im)'][:][0]
                 S21_re = h5['S-Parameters']['S21 (Re)'][:][0]
                 S21_im = h5['S-Parameters']['S21 (Im)'][:][0]
-
             if spectra:
                 # freq = h5['Spectra']['Freq'][:]
                 labels_T = h5['Spectra']['Transmittance'][:]
                 labels_R = h5['Spectra']['Reflectance'][:]
                 labels_A = h5['Spectra']['Absorptance'][:]
+            if opt_const:
+                # freq = h5['S-Parameters']['Freq'][:]
+                e1 = h5['Optical Constants']['e1'][:]
+                e2 = h5['Optical Constants']['e2'][:]
+                mu1 = h5['Optical Constants']['mu1'][:]
+                mu2 = h5['Optical Constants']['mu2'][:]
             h5.close()
 
         else:
@@ -65,6 +70,15 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 labels_T = np.vstack((labels_T, d_T))
                 labels_R = np.vstack((labels_R, d_R))
                 labels_A = np.vstack((labels_A, d_A))
+            if opt_const:
+                d_e1 = h5['Optical Constants']['e1'][:]
+                d_e2 = h5['Optical Constants']['e2'][:]
+                d_mu1 = h5['Optical Constants']['mu1'][:]
+                d_mu2 = h5['Optical Constants']['mu2'][:]
+                e1 = np.vstack((e1, d_e1))
+                e2 = np.vstack((e2, d_e2))
+                mu1 = np.vstack((mu1, d_mu1))
+                mu2 = np.vstack((mu2, d_mu2))
             h5.close()
         x = (ind+1) - (current_batch-1)*batch_size
         if (x == batch_size) or (ind+1) == num_files:
@@ -82,7 +96,6 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                                             + '_' + str(current_batch) + '.csv'), S21_re, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'S21(Im)_' + suffix
                                             + '_' + str(current_batch) + '.csv'), S21_im, delimiter=',')
-
                 if spectra:
                     np.savetxt(os.path.join(out_dir, 'Trans_' + suffix
                                             + '_' + str(current_batch) + '.csv'), labels_T, delimiter=',')
@@ -90,9 +103,20 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                                             + '_' + str(current_batch) + '.csv'), labels_R, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'Abs_' + suffix
                                             + '_' + str(current_batch) + '.csv'), labels_A, delimiter=',')
+                if opt_const:
+                    np.savetxt(os.path.join(out_dir, 'Eps(Re)_' + suffix
+                                            + '_' + str(current_batch) + '.csv'), e1, delimiter=',')
+                    np.savetxt(os.path.join(out_dir, 'Eps(Im)_' + suffix
+                                            + '_' + str(current_batch) + '.csv'), e2, delimiter=',')
+                    np.savetxt(os.path.join(out_dir, 'Mu(Re)_' + suffix
+                                            + '_' + str(current_batch) + '.csv'), mu1, delimiter=',')
+                    np.savetxt(os.path.join(out_dir, 'Mu(Im)_' + suffix
+                                            + '_' + str(current_batch) + '.csv'), mu2, delimiter=',')
+
                 new_batch = 1
 
 def check_data_distribution(data_dir):
+    os.chdir(data_dir)
     train_data_files = []
     file_list = os.listdir(data_dir)
     data = None
@@ -104,6 +128,25 @@ def check_data_distribution(data_dir):
                     data = np.loadtxt(file,delimiter=',')
                 else:
                     d = np.loadtxt(file, delimiter=',')
+                    data = np.vstack((data, d))
+    # print(data.shape[1])
+    df = pd.DataFrame(data)
+    hist = df.hist(bins=13, figsize=(10, 5))
+    plt.tight_layout()
+    plt.show()
+
+def check_param_file_distribution(param_dir):
+    train_data_files = []
+    file_list = os.listdir(param_dir)
+    data = None
+    for ind, file in enumerate(file_list):
+        if file.endswith('.txt'):
+            if 'master' in file:
+                # train_data_files.append(file)
+                if data is None:
+                    data = np.loadtxt(file, skiprows=1, delimiter='\t')
+                else:
+                    d = np.loadtxt(file, skiprows=1, delimiter='\t')
                     data = np.vstack((data, d))
     # print(data.shape[1])
     df = pd.DataFrame(data)
@@ -147,8 +190,8 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     s11_im = importData(os.path.join(data_dir, 'training_data'), 'S11(Im)')
     s21_re = importData(os.path.join(data_dir, 'training_data'), 'S21(Re)')
     s21_im = importData(os.path.join(data_dir, 'training_data'), 'S21(Im)')
-    s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
-    s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
+    s11 = np.expand_dims(s11_re - 1j * s11_im, axis=2)
+    s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
 
     # indices = y_range
@@ -175,8 +218,8 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
         s11_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S11(Im)')
         s21_re = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Re)')
         s21_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Im)')
-        s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
-        s21 = np.expand_dims(s21_re + 1j * s21_im, axis=2)
+        s11 = np.expand_dims(s11_re - 1j * s11_im, axis=2)
+        s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
         scat_Te = np.concatenate((s11, s21), axis=2)
 
     print('Generating torch datasets')

@@ -53,7 +53,7 @@ class Network(object):
         self.test_loader = test_loader                          # The test data loader
         self.log = SummaryWriter(self.ckpt_dir)     # Create a summary writer for tensorboard
         self.best_validation_loss = float('inf')    # Set the BVL to large number
-        self.best_pretrain_loss = float('inf')
+        self.best_mse_loss = float('inf')
 
     def create_model(self):
         """
@@ -91,7 +91,16 @@ class Network(object):
         loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
         loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
         loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
+        # # # loss1 = 0
+        # # # loss2 = 0
         custom_loss = loss1 + loss2 + loss3 + loss4
+
+
+        # loss1 = nn.functional.smooth_l1_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
+        # loss2 = nn.functional.smooth_l1_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        # loss3 = nn.functional.smooth_l1_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
+        # loss4 = nn.functional.smooth_l1_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
+        # custom_loss = loss1 + loss2 + loss3 + loss4
 
         # boundary_loss1 = torch.sum(F.relu(abs(logit1.real) - 1)).float()
         # boundary_loss2 = torch.sum(F.relu(abs(logit1.imag) - 1)).float()
@@ -101,12 +110,36 @@ class Network(object):
         #               boundary_loss1 + boundary_loss2 + boundary_loss3 + boundary_loss4
         # custom_loss *= 1000
 
-        # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
-        # loss2 = nn.functional.mse_loss(logit2.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
-        # loss1 = 0
-        # custom_loss = loss1 + loss2*1000
+        loss1 = nn.functional.mse_loss(square(abs(logit1)).float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
+        loss2 = nn.functional.mse_loss(square(abs(logit2)).float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
+        loss3 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        # # loss1 = 0
+        custom_loss = loss1 + loss2 + loss3
+        # #
+        custom_loss *= self.flags.loss_factor
         return custom_loss
 
+    def init_weights(self):
+
+        for layer_name, child in self.model.named_children():
+            for param in self.model.parameters():
+                if ('_w0' in layer_name):
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=3)
+                    # torch.nn.init.xavier_uniform_(child.weight)
+                elif ('_wp' in layer_name):
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
+                    # torch.nn.init.xavier_uniform_(child.weight)
+                elif ('_g' in layer_name):
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                    # torch.nn.init.xavier_uniform_(child.weight)
+                elif ('_inf' in layer_name):
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.03)
+                    # torch.nn.init.xavier_uniform_(child.weight)
+                else:
+                    if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
+                        torch.nn.init.xavier_uniform_(child.weight)
+                        if child.bias:
+                            child.bias.data.fill_(0.00)
 
     def make_optimizer(self):
         """
@@ -156,25 +189,6 @@ class Network(object):
         """
         self.model = torch.load(os.path.join(self.ckpt_dir, 'best_model.pt'))
 
-    def init_weights(self):
-
-        for layer_name, child in self.model.named_children():
-            for param in self.model.parameters():
-                if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
-                    # torch.nn.init.xavier_uniform_(child.weight)
-                elif ('_wp' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
-                    # torch.nn.init.xavier_uniform_(child.weight)
-                elif ('_g' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.01)
-                    # torch.nn.init.xavier_uniform_(child.weight)
-                else:
-                    if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
-                        torch.nn.init.xavier_uniform_(child.weight)
-                        if child.bias:
-                            child.bias.data.fill_(0.00)
-
     def evaluate(self, save_dir='eval/'):
         self.load()                             # load the model as constructed
         cuda = True if torch.cuda.is_available() else False
@@ -196,10 +210,11 @@ class Network(object):
                     if cuda:
                         geometry = geometry.cuda()
                         spectra = spectra.cuda()
-                    logit,w0,wp,g = self.model(geometry)
+                    pred_r, pred_t = self.model(geometry)  # Get the output
+
                     np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyt, spectra.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyp, logit.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyt, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyp, square(abs(pred_t)).cpu().data.numpy(), fmt='%.3f')
         return Ypred_file, Ytruth_file
 
     def record_weight(self, name='Weights', layer=None, batch=999, epoch=999):
@@ -263,6 +278,9 @@ class Network(object):
         The major training function. This starts the training using parameters given in the flags
         :return: None
         """
+
+        # torch.autograd.set_detect_anomaly(True)
+
         print("Starting training process")
         cuda = True if torch.cuda.is_available() else False
         if cuda:
@@ -273,7 +291,7 @@ class Network(object):
         self.lr_scheduler = self.make_lr_scheduler()
         self.init_weights()
 
-        # # Start a tensorboard session for logging loss and training images
+        # Start a tensorboard session for logging loss and training images
         tb = program.TensorBoard()
         tb.configure(argv=[None, '--logdir', self.ckpt_dir])
         url = tb.launch()
@@ -293,7 +311,13 @@ class Network(object):
 
                 self.optm.zero_grad()                                   # Zero the gradient first
                 pred_r, pred_t = self.model(geometry)            # Get the output
+
                 loss = self.make_custom_loss(pred_r, pred_t, spectra)
+
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print('Loss is invalid at iteration ', epoch)
+
+
                 # print(abs(spectra[:,:,1]))
                 # if j == 0 and epoch == 0:
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
@@ -302,13 +326,12 @@ class Network(object):
                 # print(loss)
                 loss.backward()
 
-                grads = [x.grad for x in self.model.parameters()]
-                grads_sum = torch.tensor([0], dtype=torch.float32).cuda()
-                for x in grads:
-                    grads_sum += torch.sum(x)
-                # grads_sum = torch.sum(grads_sum)
-
-                self.log.add_scalar('Grad sum', grads_sum, int(epoch*len(self.train_loader) + j))
+                # grads = [x.grad for x in self.model.parameters()]
+                # grads_sum = torch.tensor([0], dtype=torch.float32).cuda()
+                # for x in grads:
+                #     grads_sum += torch.sum(x)
+                # # grads_sum = torch.sum(grads_sum)
+                # self.log.add_scalar('Grad sum', grads_sum, int(epoch*len(self.train_loader) + j))
 
                 # Clip gradients to help with training
                 if self.flags.use_clip:
@@ -316,15 +339,24 @@ class Network(object):
                         # torch.nn.utils.clip_grad_value_(self.model.parameters(), self.flags.grad_clip)
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.flags.grad_clip)
 
-                if epoch % self.flags.record_step == 0:
-                    self.record_grad(name='eps_w0', layer=self.model.eps_w0, batch=j, epoch=epoch)
-                    self.record_grad(name='eps_g', layer=self.model.eps_g, batch=j, epoch=epoch)
+                # if epoch % self.flags.record_step == 0:
+                #     self.record_grad(name='eps_w0', layer=self.model.eps_w0, batch=j, epoch=epoch)
+                #     self.record_grad(name='eps_g', layer=self.model.eps_g, batch=j, epoch=epoch)
 
                 if epoch % self.flags.record_step == 0:
-                    for b in range(10):
+                    for b in range(1):
                         if j == b:
-                            for k in [0]:
-                            # for k in range(self.flags.num_plot_compare):
+                            # for k in [0]:
+                            for k in range(self.flags.num_plot_compare):
+
+                                # f = plot_complex(logit1=square(abs(pred_t[k, :])).cpu().data.numpy(),
+                                #                  tr1 = square(abs(spectra[k,:,1])).cpu().data.numpy(),
+                                #                  logit2=square(abs(pred_r[k, :])).cpu().data.numpy(),
+                                #                  tr2 = square(abs(spectra[k,:,0])).cpu().data.numpy(),
+                                #                  xmin=self.flags.freq_low, xmax=self.flags.freq_high,
+                                #                  num_points=self.flags.num_spec_points)
+                                # self.log.add_figure(tag='Test ' + str(k) +') Sample T,R Spectra'.format(1),
+                                #                     figure=f, global_step=epoch)
 
                                 # f = plot_complex(logit1=pred_t[k, :].cpu().data.numpy(),
                                 #                  tr1 = square(spectra[k,:,1].abs()).cpu().data.numpy(),
@@ -335,12 +367,17 @@ class Network(object):
                                 # self.log.add_figure(tag='Test ' + str(k) +') Sample Transmission Spectrum'.format(1),
                                 #                     figure=f, global_step=epoch)
 
-                                logit1 = square(abs(pred_t)).cpu().data.numpy()
-                                tr1 = square(abs(spectra[:,:,1])).cpu().data.numpy()
-                                # logit2 = pred_t.cpu().data.numpy()
-                                # tr2 = spectra[:,:,1].cpu().data.numpy()
+                                # logit1 = square(abs(pred_t)).cpu().data.numpy()
+                                # tr1 = square(abs(spectra[:, :, 1])).cpu().data.numpy()
+                                # logit2 = square(abs(pred_r)).cpu().data.numpy()
+                                # tr2 = square(abs(spectra[:, :, 0])).cpu().data.numpy()
 
-                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=None,tr2 = None,
+                                logit1 = pred_t.imag.cpu().data.numpy()
+                                tr1 = spectra[:,:,1].imag.cpu().data.numpy()
+                                logit2 = pred_r.imag.cpu().data.numpy()
+                                tr2 = spectra[:,:,0].imag.cpu().data.numpy()
+
+                                f = plot_debug(logit1=logit1[k, :],tr1 = tr1[k, :], logit2=logit2[k, :],tr2 = tr2[k, :],
                                                  model=self.model, index=k, xmin=self.flags.freq_low,
                                                     xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
                                                num_osc=self.flags.num_lorentz_osc, y_axis='Transmission')
@@ -380,9 +417,10 @@ class Network(object):
                             spectra = spectra.cuda()
                         pred_r, pred_t = self.model(geometry)  # Get the output
                         loss = self.make_custom_loss(pred_r, pred_t, spectra)
-
+                        mse_loss = nn.functional.mse_loss(square(abs(pred_t)).float(),
+                                                       square(abs(spectra[:, :, 1])).float(), reduction='mean')
                         test_loss.append(np.copy(loss.cpu().data.numpy()))           # Aggregate the loss
-
+                        test_loss2.append(np.copy(mse_loss.cpu().data.numpy()))
                         # if j == 0 and epoch > 10 and epoch % self.flags.record_step == 0:
                         #     # f2 = plotMSELossDistrib(test_loss)
                         #     f2 = plotMSELossDistrib(logit.cpu().data.numpy(), spectra[:, ].cpu().data.numpy())
@@ -391,14 +429,17 @@ class Network(object):
 
                 # Record the testing loss to the tensorboard
                 test_avg_loss = np.mean(test_loss)
+                test_avg_loss2 = np.mean(test_loss2)
                 self.log.add_scalar('Loss/ Validation Loss', test_avg_loss, epoch)
+                self.log.add_scalar('Loss/ MSE Loss', test_avg_loss2, epoch)
 
-                print("This is Epoch %d, training loss %.5f, validation loss %.5f" \
-                      % (epoch, train_avg_eval_mode_loss, test_avg_loss))
+                print("This is Epoch %d, training loss %.5f, validation loss %.5f, mse loss %.5f" \
+                      % (epoch, train_avg_eval_mode_loss, test_avg_loss, test_avg_loss2))
 
                 # Model improving, save the model
                 if test_avg_loss < self.best_validation_loss:
                     self.best_validation_loss = test_avg_loss
+                    self.best_mse_loss = test_avg_loss2
                     self.save()
                     print("Saving the model...")
 
@@ -413,7 +454,8 @@ class Network(object):
 
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 1
+                # restart_lr = self.flags.lr * 0.01
+                restart_lr = 5e-4
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
@@ -550,7 +592,7 @@ class Network(object):
 
 
             if epoch > 10:
-                restart_lr = self.flags.lr * 1
+                # restart_lr = self.flags.lr * 0.01
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
