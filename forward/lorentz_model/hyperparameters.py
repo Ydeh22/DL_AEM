@@ -3,14 +3,14 @@ Parameter file for specifying the running parameters for forward model
 """
 # Model Architectural Parameters
 NUM_LORENTZ_OSC = 10
-LINEAR = [4, 50,100,100,50]
+LINEAR = [4, 100,250,250,100]
 
 # Optimization parameters
 OPTIM = "Adam"
 REG_SCALE = 1e-4
-BATCH_SIZE = 256
+BATCH_SIZE = 128
 EVAL_STEP = 10
-RECORD_STEP = 100
+RECORD_STEP = 500
 TRAIN_STEP =30000
 LEARN_RATE = 1e-2
 # DECAY_STEP = 25000 # This is for step decay, however we are using dynamic decaying
@@ -34,10 +34,10 @@ DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop u
 # DATA_DIR = 'C:/Users/Omar/PycharmProjects/DL_AEM/' # For Omar home desktop usage
 # DATA_DIR = '/home/omar/PycharmProjects/DL_AEM'  # For Omar laptop usage
 # Format for geoboundary is [p0_min... pf_min p0_max... pf_max]
-# GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
-GEOBOUNDARY =[1.3, 0.975, 6, 40, 2.4, 3, 7, 44]
+GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
+# GEOBOUNDARY =[1.3, 0.975, 6, 40, 2.4, 3, 7, 44]
 NORMALIZE_INPUT = True
-TEST_RATIO = 0.1
+TEST_RATIO = 0.2
 DATA_REDUCE = 0
 
 # Running specific
