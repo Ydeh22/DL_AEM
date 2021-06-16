@@ -38,9 +38,12 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 S21_im = h5['S-Parameters']['S21 (Im)'][:][0]
             if spectra:
                 # freq = h5['Spectra']['Freq'][:]
-                labels_T = h5['Spectra']['Transmittance'][:]
-                labels_R = h5['Spectra']['Reflectance'][:]
-                labels_A = h5['Spectra']['Absorptance'][:]
+                # labels_T = h5['Spectra']['Transmittance'][:]
+                # labels_R = h5['Spectra']['Reflectance'][:]
+                # labels_A = h5['Spectra']['Absorptance'][:]
+                labels_T = h5['Spectra']['Transmission'][:]
+                labels_R = h5['Spectra']['Reflection'][:]
+                labels_A = h5['Spectra']['Absorption'][:]
             if opt_const:
                 # freq = h5['S-Parameters']['Freq'][:]
                 e1 = h5['Optical Constants']['e1'][:]
@@ -64,9 +67,12 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 S21_re = np.vstack((S21_re, d_S21_re))
                 S21_im = np.vstack((S21_im, d_S21_im))
             if spectra:
-                d_T = h5['Spectra']['Transmittance'][:]
-                d_R = h5['Spectra']['Reflectance'][:]
-                d_A = h5['Spectra']['Absorptance'][:]
+                # d_T = h5['Spectra']['Transmittance'][:]
+                # d_R = h5['Spectra']['Reflectance'][:]
+                # d_A = h5['Spectra']['Absorptance'][:]
+                d_T = h5['Spectra']['Transmission'][:]
+                d_R = h5['Spectra']['Reflection'][:]
+                d_A = h5['Spectra']['Absorption'][:]
                 labels_T = np.vstack((labels_T, d_T))
                 labels_R = np.vstack((labels_R, d_R))
                 labels_A = np.vstack((labels_A, d_A))
@@ -190,14 +196,14 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     s11_im = importData(os.path.join(data_dir, 'training_data'), 'S11(Im)')
     s21_re = importData(os.path.join(data_dir, 'training_data'), 'S21(Re)')
     s21_im = importData(os.path.join(data_dir, 'training_data'), 'S21(Im)')
-    s11 = np.expand_dims(s11_re - 1j * s11_im, axis=2)
+    s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
     s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
 
     # indices = y_range
     indices = []
     for i in range(1,len(geom)):
-        if geom[i,3] > 40:
+        if geom[i,3] > 0:
             indices.append(i)
 
     if (test_ratio > 0):
@@ -218,7 +224,7 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
         s11_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S11(Im)')
         s21_re = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Re)')
         s21_im = importData(os.path.join(data_dir, 'training_data', 'eval'), 'S21(Im)')
-        s11 = np.expand_dims(s11_re - 1j * s11_im, axis=2)
+        s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
         s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
         scat_Te = np.concatenate((s11, s21), axis=2)
 
