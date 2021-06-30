@@ -3,7 +3,7 @@ Parameter file for specifying the running parameters for forward model
 """
 # Model Architectural Parameters
 NUM_LORENTZ_OSC = 10
-LINEAR = [4, 100,250,250,100]
+LINEAR = [4, 100,250,250,250,100]
 
 # Optimization parameters
 OPTIM = "Adam"
@@ -11,16 +11,16 @@ REG_SCALE = 1e-4
 BATCH_SIZE = 128
 EVAL_STEP = 10
 RECORD_STEP = 500
-TRAIN_STEP =30000
-LEARN_RATE = 1e-2
+TRAIN_STEP =500
+LEARN_RATE = 1e-3
 # DECAY_STEP = 25000 # This is for step decay, however we are using dynamic decaying
 LR_DECAY_RATE = 0.5
 STOP_THRESHOLD = 1e-5
 USE_CLIP = False
 GRAD_CLIP = 500
 USE_WARM_RESTART = True
-LR_WARM_RESTART = 200
-LOSS_FACTOR = 5000
+LR_WARM_RESTART = 300
+LOSS_FACTOR = 50000
 
 # Data Specific parameters
 X_RANGE = [i for i in range(0, 4)]
@@ -43,5 +43,5 @@ DATA_REDUCE = 0
 # Running specific
 USE_CPU_ONLY = False
 MODEL_NAME  = None 
-EVAL_MODEL = "20210530_153103_MSE1.6e-3"
+EVAL_MODEL = "20210623_110838"
 NUM_PLOT_COMPARE = 10

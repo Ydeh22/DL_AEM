@@ -87,13 +87,13 @@ class Network(object):
 
         if logit1 is None:
             return None
-        loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
-        loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
-        loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
-        loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
-        # # # loss1 = 0
-        # # # loss2 = 0
-        custom_loss = loss1 + loss2 + loss3 + loss4
+        # loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
+        # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
+        # loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
+        # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
+        # # # # loss1 = 0
+        # # # # loss2 = 0
+        # custom_loss = loss1 + loss2 + loss3 + loss4
 
 
         # loss1 = nn.functional.smooth_l1_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
@@ -113,7 +113,7 @@ class Network(object):
         loss1 = nn.functional.mse_loss(square(abs(logit1)).float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
         loss2 = nn.functional.mse_loss(square(abs(logit2)).float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
         loss3 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
-        # # loss1 = 0
+        # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
         custom_loss = loss1 + loss2 + loss3
         # #
         custom_loss *= self.flags.loss_factor
@@ -124,7 +124,7 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=3)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=1.5)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
                     torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
