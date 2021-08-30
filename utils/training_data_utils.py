@@ -1,6 +1,7 @@
 import os
 import h5py
 import numpy as np
+from scipy import interpolate
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 import torch
 
-def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False, spectra=True, opt_const=False):
+def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, existing_batches=0, S_params=False, spectra=True, opt_const=False):
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -37,7 +38,7 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 S21_re = h5['S-Parameters']['S21 (Re)'][:][0]
                 S21_im = h5['S-Parameters']['S21 (Im)'][:][0]
             if spectra:
-                # freq = h5['Spectra']['Freq'][:]
+                freq_0 = h5['Spectra']['Freq'][:]
                 labels_T = h5['Spectra']['Transmittance'][:]
                 labels_R = h5['Spectra']['Reflectance'][:]
                 labels_A = h5['Spectra']['Absorptance'][:]
@@ -50,6 +51,13 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 e2 = h5['Optical Constants']['e2'][:]
                 mu1 = h5['Optical Constants']['mu1'][:]
                 mu2 = h5['Optical Constants']['mu2'][:]
+
+                e1_av = h5['Optical Constants']['e1_av'][:]
+                e2_av = h5['Optical Constants']['e2_av'][:]
+                mu1_av = h5['Optical Constants']['mu1_av'][:]
+                mu2_av = h5['Optical Constants']['mu2_av'][:]
+
+
             h5.close()
 
         else:
@@ -67,9 +75,13 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 S21_re = np.vstack((S21_re, d_S21_re))
                 S21_im = np.vstack((S21_im, d_S21_im))
             if spectra:
+                freq = h5['Spectra']['Freq'][:]
                 d_T = h5['Spectra']['Transmittance'][:]
                 d_R = h5['Spectra']['Reflectance'][:]
                 d_A = h5['Spectra']['Absorptance'][:]
+                d_T = np.interp(freq_0, freq, d_T)
+                d_R = np.interp(freq_0, freq, d_R)
+                d_A = np.interp(freq_0, freq, d_A)
                 # d_T = h5['Spectra']['Transmission'][:]
                 # d_R = h5['Spectra']['Reflection'][:]
                 # d_A = h5['Spectra']['Absorption'][:]
@@ -85,6 +97,16 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 e2 = np.vstack((e2, d_e2))
                 mu1 = np.vstack((mu1, d_mu1))
                 mu2 = np.vstack((mu2, d_mu2))
+
+                d_e1_av = h5['Optical Constants']['e1_av'][:]
+                d_e2_av = h5['Optical Constants']['e2_av'][:]
+                d_mu1_av = h5['Optical Constants']['mu1_av'][:]
+                d_mu2_av = h5['Optical Constants']['mu2_av'][:]
+                e1_av = np.vstack((e1_av, d_e1_av))
+                e2_av = np.vstack((e2_av, d_e2_av))
+                mu1_av = np.vstack((mu1_av, d_mu1_av))
+                mu2_av = np.vstack((mu2_av, d_mu2_av))
+
             h5.close()
         x = (ind+1) - (current_batch-1)*batch_size
         if (x == batch_size) or (ind+1) == num_files:
@@ -92,32 +114,41 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, S_params=False,
                 break
             else:
                 np.savetxt(os.path.join(out_dir, 'inputs_' + suffix
-                                        + '_' + str(current_batch) + '.csv'), inputs, delimiter=',')
+                                        + '_' + str(current_batch+existing_batches) + '.csv'), inputs, delimiter=',')
                 if S_params:
                     np.savetxt(os.path.join(out_dir, 'S11(Re)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), S11_re, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S11_re, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'S11(Im)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), S11_im, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S11_im, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'S21(Re)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), S21_re, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S21_re, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'S21(Im)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), S21_im, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S21_im, delimiter=',')
                 if spectra:
                     np.savetxt(os.path.join(out_dir, 'Trans_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), labels_T, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_T, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'Refl_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), labels_R, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_R, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'Abs_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), labels_A, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_A, delimiter=',')
                 if opt_const:
                     np.savetxt(os.path.join(out_dir, 'Eps(Re)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), e1, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), e1, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'Eps(Im)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), e2, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), e2, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'Mu(Re)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), mu1, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), mu1, delimiter=',')
                     np.savetxt(os.path.join(out_dir, 'Mu(Im)_' + suffix
-                                            + '_' + str(current_batch) + '.csv'), mu2, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), mu2, delimiter=',')
+
+                    np.savetxt(os.path.join(out_dir, 'Eps_Av(Re)_' + suffix
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), e1_av, delimiter=',')
+                    np.savetxt(os.path.join(out_dir, 'Eps_Av(Im)_' + suffix
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), e2_av, delimiter=',')
+                    np.savetxt(os.path.join(out_dir, 'Mu_Av(Re)_' + suffix
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), mu1_av, delimiter=',')
+                    np.savetxt(os.path.join(out_dir, 'Mu_Av(Im)_' + suffix
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), mu2_av, delimiter=',')
 
                 new_batch = 1
 
@@ -200,18 +231,27 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
     s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
 
+    if dataset_size != 0:
+        data_reduce = dataset_size
+    else:
+        data_reduce = len(geom)
+
+    geom = geom[:data_reduce]
+    scat = scat[:data_reduce]
+
     # indices = y_range
     indices = []
     for i in range(1,len(geom)):
-        if geom[i,3] > 0:
+        # if geom[i,3] > 38:
+        #     indices.append(i)
+        # if geom[i,0] < 2.4:
+        #     indices.append(i)
+        if geom[i,3] > 37 and geom[i,0] < 2.0:
             indices.append(i)
 
     if (test_ratio > 0):
         print("Splitting data into training and test sets with a ratio of:", str(test_ratio))
-        if dataset_size != 0:
-            data_reduce = dataset_size
-        else:
-            data_reduce = len(geom)
+
         geom_Tr, geom_Te, scat_Tr, scat_Te = train_test_split(geom[indices], scat[indices],
                                                                 test_size=test_ratio, random_state=rand_seed)
         print('Total number of training samples is {}'.format(len(geom_Tr)))
@@ -227,6 +267,8 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
         s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
         s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
         scat_Te = np.concatenate((s11, s21), axis=2)
+        geom_Tr = geom_Te
+        scat_Tr = scat_Te
 
     print('Generating torch datasets')
 

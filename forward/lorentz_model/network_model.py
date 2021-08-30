@@ -50,6 +50,8 @@ class LorentzDNN(nn.Module):
 
             self.bn_linears.append(nn.BatchNorm1d(flags.linear[ind + 1], track_running_stats=True, affine=True))
 
+        # self.dropout = nn.Dropout(0.03)
+
         layer_size = flags.linear[-1]
 
         # Last layer is the Lorentzian parameter layer
@@ -70,14 +72,17 @@ class LorentzDNN(nn.Module):
         :return: S: The 300 dimension spectra
         """
         out = G
-
+        self.geom = G
         # For the linear part
         for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
             #print(out.size())
             if ind < len(self.linears) - 0:
+            # if ind != len(self.linears) - 1:
                 out = F.leaky_relu_(bn(fc(out)))                                   # ReLU + BN + Linear
+                # out = self.dropout(out)
             else:
-                out = bn(fc(out))
+                # out = bn(fc(out))
+                out = fc(out)
 
         e_w0 = F.leaky_relu(self.eps_w0(F.leaky_relu(out)))
         e_wp = F.leaky_relu(self.eps_wp(F.leaky_relu(out)))
@@ -159,7 +164,9 @@ class LorentzDNN(nn.Module):
 
         # # Spatial dispersion
         theta = 2 * arctan(0.0033 * pi * w_2 * d * sqrt(mul(eps, mu)))
+        # theta = theta.real + 1j * abs(theta.imag)
         magic = div(0.5 * theta, tan(0.5 * theta))
+        # magic = magic.real + 1j * abs(magic.imag)
         eps_eff = mul(magic, eps)
         mu_eff = mul(magic, mu)
         n_eff = sqrt(mul(eps_eff, mu_eff))
@@ -170,6 +177,8 @@ class LorentzDNN(nn.Module):
         self.eps_out = eps_eff
         self.mu_out = mu_eff
         self.n_out = n
+        self.theta_out = theta
+        self.adv_out = magic
 
         r, t, = transfer_matrix(n, z, d, w_2)
 

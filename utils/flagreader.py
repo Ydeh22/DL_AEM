@@ -58,6 +58,8 @@ def read_flag():
     parser.add_argument('--lr-warm-restart', default=LR_WARM_RESTART, type=int, help='# steps before warm restart')
     parser.add_argument('--loss-factor', type=int, default=LOSS_FACTOR,
                         help='Scales the loss output by this factor')
+    parser.add_argument('--ntwk-noise', type=float, default=NTWK_NOISE,
+                        help='Adds noise to network weights during training')
 
     # Data specific Params
     parser.add_argument('--x-range', type=list, default=X_RANGE, help='columns of input parameters')

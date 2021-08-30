@@ -66,7 +66,7 @@ class Forward(nn.Module):
             if ind < len(self.linears) - 1:
                 out = F.relu(bn(fc(out)))  # ReLU + BN + Linear
             else:
-                out = bn(fc(out))
+                out = fc(out)
 
         if self.use_conv:
             out = out.unsqueeze(1)  # Add 1 dimension to get N,L_in, H

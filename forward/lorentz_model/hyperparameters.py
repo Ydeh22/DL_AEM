@@ -2,25 +2,27 @@
 Parameter file for specifying the running parameters for forward model
 """
 # Model Architectural Parameters
-NUM_LORENTZ_OSC = 10
-LINEAR = [4, 100,250,250,250,100]
+NUM_LORENTZ_OSC = 4
+LINEAR = [4, 100,250,250,100]
+# LINEAR = [4, 500,500,500,500]
 
 # Optimization parameters
 OPTIM = "Adam"
 REG_SCALE = 1e-4
 BATCH_SIZE = 128
 EVAL_STEP = 10
-RECORD_STEP = 500
-TRAIN_STEP =500
-LEARN_RATE = 1e-3
+RECORD_STEP = 100
+TRAIN_STEP = 5000
+LEARN_RATE = 1e-2
 # DECAY_STEP = 25000 # This is for step decay, however we are using dynamic decaying
 LR_DECAY_RATE = 0.5
 STOP_THRESHOLD = 1e-5
 USE_CLIP = False
 GRAD_CLIP = 500
 USE_WARM_RESTART = True
-LR_WARM_RESTART = 300
-LOSS_FACTOR = 50000
+LR_WARM_RESTART = 200
+LOSS_FACTOR = 5000
+NTWK_NOISE = 0.01
 
 # Data Specific parameters
 X_RANGE = [i for i in range(0, 4)]
@@ -34,14 +36,15 @@ DATA_DIR = 'C:/Users/labuser/DL_AEM/'                # For Omar office desktop u
 # DATA_DIR = 'C:/Users/Omar/PycharmProjects/DL_AEM/' # For Omar home desktop usage
 # DATA_DIR = '/home/omar/PycharmProjects/DL_AEM'  # For Omar laptop usage
 # Format for geoboundary is [p0_min... pf_min p0_max... pf_max]
-GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
+# GEOBOUNDARY =[1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
+GEOBOUNDARY =[1.3, 0.975, 6, 37, 2.0, 3, 7, 43.749]
 # GEOBOUNDARY =[1.3, 0.975, 6, 40, 2.4, 3, 7, 44]
 NORMALIZE_INPUT = True
 TEST_RATIO = 0.2
-DATA_REDUCE = 0
+DATA_REDUCE = 30000
 
 # Running specific
 USE_CPU_ONLY = False
 MODEL_NAME  = None 
-EVAL_MODEL = "20210623_110838"
+EVAL_MODEL = "20210804_110658_MSE2.6e-3"
 NUM_PLOT_COMPARE = 10

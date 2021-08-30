@@ -17,6 +17,7 @@ from torch.optim import lr_scheduler
 from torchviz import make_dot
 from utils.plotting import plot_weights_3D, plotMSELossDistrib, \
     compare_spectra, compare_spectra_with_params, plot_complex, plot_debug
+import utils.sgld_optim as sgld
 
 # Libs
 import matplotlib
@@ -46,6 +47,7 @@ class Network(object):
             else:
                 self.ckpt_dir = os.path.join(ckpt_dir, flags.model_name)
         self.model = self.create_model()                        # The model itself
+        self.init_weights()
         self.loss = self.make_custom_loss()                            # The loss function
         self.optm = None                                        # The optimizer: Initialized at train()
         self.lr_scheduler = None                                # The lr scheduler: Initialized at train()
@@ -124,7 +126,8 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=1.5)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=1.5)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=3)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
                     torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
@@ -140,6 +143,27 @@ class Network(object):
                         torch.nn.init.xavier_uniform_(child.weight)
                         if child.bias:
                             child.bias.data.fill_(0.00)
+
+    def add_network_noise(self):
+
+        with torch.no_grad():
+            # for param in self.model.parameters():
+            #     param.add_(torch.randn(param.size()).cuda() * self.flags.ntwk_noise)
+
+            for layer_name, child in self.model.named_children():
+                for param in self.model.parameters():
+                    if ('_w0' in layer_name):
+                        param.add_(torch.randn(param.size()).cuda() * self.flags.ntwk_noise)
+                    elif ('_wp' in layer_name):
+                        param.add_(torch.randn(param.size()).cuda() * self.flags.ntwk_noise)
+                    elif ('_g' in layer_name):
+                        param.add_(torch.randn(param.size()).cuda() * self.flags.ntwk_noise)
+                    elif ('_inf' in layer_name):
+                        pass
+                    else:
+                        # if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
+                        #     param.add_(torch.randn(param.size()).cuda() * self.flags.ntwk_noise)
+                        pass
 
     def make_optimizer(self):
         """
@@ -160,6 +184,9 @@ class Network(object):
             op = torch.optim.SGD(self.model.parameters(), lr=self.flags.lr, weight_decay=self.flags.reg_scale, momentum=0.9, nesterov=True)
         elif self.flags.optim == 'LBFGS':
             op = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=20, history_size=100)
+        elif self.flags.optim == 'SGLD':
+            op = sgld.SGLD(self.model.parameters(), lr=self.flags.lr, precondition_decay_rate=0.95,
+                           num_pseudo_batches=1, num_burn_in_steps=3000)
         else:
             raise Exception("Optimizer is not available at the moment.")
         return op
@@ -197,13 +224,16 @@ class Network(object):
         self.model.eval()                       # Evaluation mode
 
         # Get the file names
-        Ypred_file = os.path.join(save_dir, 'test_Ypred_{}.csv'.format(self.saved_model))
+        Ypred_T_file = os.path.join(save_dir, 'test_Ypred_T_{}.csv'.format(self.saved_model))
+        Ypred_R_file = os.path.join(save_dir, 'test_Ypred_R_{}.csv'.format(self.saved_model))
         Xtruth_file = os.path.join(save_dir, 'test_Xtruth_{}.csv'.format(self.saved_model))
-        Ytruth_file = os.path.join(save_dir, 'test_Ytruth_{}.csv'.format(self.saved_model))
+        Ytruth_T_file = os.path.join(save_dir, 'test_Ytruth_T_{}.csv'.format(self.saved_model))
+        Ytruth_R_file = os.path.join(save_dir, 'test_Ytruth_R_{}.csv'.format(self.saved_model))
         # Xpred_file = os.path.join(save_dir, 'test_Xpred_{}.csv'.format(self.saved_model))  # For pure forward model, there is no Xpred
 
         # Open those files to append
-        with open(Xtruth_file, 'a') as fxt,open(Ytruth_file, 'a') as fyt, open(Ypred_file, 'a') as fyp:
+        with open(Xtruth_file, 'a') as fxt,open(Ytruth_T_file, 'a') as fyt_1, open(Ypred_T_file, 'a') as fyp_1, \
+                open(Ytruth_R_file, 'a') as fyt_2, open(Ypred_R_file, 'a') as fyp_2:
             # Loop through the eval data and evaluate
             with torch.no_grad():
                 for ind, (geometry, spectra) in enumerate(self.test_loader):
@@ -213,9 +243,12 @@ class Network(object):
                     pred_r, pred_t = self.model(geometry)  # Get the output
 
                     np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyt, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyp, square(abs(pred_t)).cpu().data.numpy(), fmt='%.3f')
-        return Ypred_file, Ytruth_file
+                    np.savetxt(fyt_1, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyp_1, square(abs(pred_t)).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyt_2, square(abs(spectra[:, :, 0])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyp_2, square(abs(pred_r)).cpu().data.numpy(), fmt='%.3f')
+
+        return Ypred_T_file, Ytruth_T_file, Ypred_R_file, Ytruth_R_file
 
     def record_weight(self, name='Weights', layer=None, batch=999, epoch=999):
         """
@@ -289,9 +322,8 @@ class Network(object):
         # Construct optimizer after the model moved to GPU
         self.optm = self.make_optimizer()
         self.lr_scheduler = self.make_lr_scheduler()
-        self.init_weights()
 
-        # Start a tensorboard session for logging loss and training images
+        # # Start a tensorboard session for logging loss and training images
         tb = program.TensorBoard()
         tb.configure(argv=[None, '--logdir', self.ckpt_dir])
         url = tb.launch()
@@ -303,6 +335,7 @@ class Network(object):
             train_loss = []
             train_loss_eval_mode_list = []
             self.model.train()
+            # self.add_network_noise()
             for j, (geometry, spectra) in enumerate(self.train_loader):
 
                 if cuda:
@@ -390,20 +423,20 @@ class Network(object):
                 self.optm.step()                                        # Move one step the optimizer
                 train_loss.append(np.copy(loss.cpu().data.numpy()))     # Aggregate the loss
 
-                self.model.eval()
-                pred_r, pred_t = self.model(geometry)  # Get the output
-                loss = self.make_custom_loss(pred_r, pred_t, spectra)
-                train_loss_eval_mode_list.append(np.copy(loss.cpu().data.numpy()))
-                self.model.train()
+                # self.model.eval()
+                # pred_r, pred_t = self.model(geometry)  # Get the output
+                # loss = self.make_custom_loss(pred_r, pred_t, spectra)
+                # train_loss_eval_mode_list.append(np.copy(loss.cpu().data.numpy()))
+                # self.model.train()
 
             # Calculate the avg loss of training
             train_avg_loss = np.mean(train_loss)
-            train_avg_eval_mode_loss = np.mean(train_loss_eval_mode_list)
+            # train_avg_eval_mode_loss = np.mean(train_loss_eval_mode_list)
 
             if epoch % self.flags.eval_step == 0:           # For eval steps, do the evaluations and tensor board
                 # Record the training loss to tensorboard
                 self.log.add_scalar('Loss/ Training Loss', train_avg_loss, epoch)
-                self.log.add_scalar('Loss/ Batchnorm Training Loss', train_avg_eval_mode_loss, epoch)
+                # self.log.add_scalar('Loss/ Batchnorm Training Loss', train_avg_eval_mode_loss, epoch)
 
                 # Set to Evaluation Mode
                 self.model.eval()
@@ -434,7 +467,7 @@ class Network(object):
                 self.log.add_scalar('Loss/ MSE Loss', test_avg_loss2, epoch)
 
                 print("This is Epoch %d, training loss %.5f, validation loss %.5f, mse loss %.5f" \
-                      % (epoch, train_avg_eval_mode_loss, test_avg_loss, test_avg_loss2))
+                      % (epoch, train_avg_loss, test_avg_loss, test_avg_loss2))
 
                 # Model improving, save the model
                 if test_avg_loss < self.best_validation_loss:

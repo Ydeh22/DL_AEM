@@ -31,7 +31,8 @@ def training_from_flag(flags):
                                                               batch_size=flags.batch_size,
                                                               normalize_input=flags.normalize_input,
                                                               test_ratio=flags.test_ratio,
-                                                              shuffle=True)
+                                                              shuffle=True,
+                                                              dataset_size=flags.data_reduce)
 
     # Reset the boundary if normalized
     if flags.normalize_input:
@@ -50,8 +51,44 @@ def training_from_flag(flags):
     # ntwk.evaluate()
 
     # Do the house keeping, write the parameters and put into folder, also use pickle to save the flags object
-    write_flags_and_BVE(flags, ntwk.best_validation_loss, ntwk.ckpt_dir)
+    write_flags_and_BVE(flags, ntwk.best_mse_loss, ntwk.ckpt_dir)
     # put_param_into_folder(ntwk.ckpt_dir)
+
+def continue_training_model(flags):
+
+    eval_model = flags.eval_model
+
+    # Retrieve flag object
+    print("Retrieving flag object for parameters")
+    old_model_dir = os.path.join("models", eval_model)
+    flags = fr.load_flags(old_model_dir)
+    flags.model_name = eval_model + '_retrain'
+
+    train_loader, test_loader = tdu.generate_torch_dataloader(x_range=flags.x_range,
+                                                              y_range=flags.y_range,
+                                                              geoboundary=flags.geoboundary,
+                                                              data_dir=flags.data_dir,
+                                                              batch_size=flags.batch_size,
+                                                              normalize_input=flags.normalize_input,
+                                                              test_ratio=flags.test_ratio,
+                                                              shuffle=True,
+                                                              dataset_size=flags.data_reduce)
+
+    print("Loading pre-trained network now")
+
+    # Make Network
+    ntwk = Network(LorentzDNN, flags, train_loader, test_loader)
+    new_model_dir = ntwk.ckpt_dir
+    ntwk.ckpt_dir = old_model_dir
+    ntwk.load()
+    ntwk.ckpt_dir = new_model_dir
+
+    # Training process
+    print("Continue training model now...")
+    ntwk.train()
+
+    write_flags_and_BVE(flags, ntwk.best_mse_loss, ntwk.ckpt_dir)
+
 
 def evaluate_from_model(model_dir):
     """
@@ -84,20 +121,23 @@ def evaluate_from_model(model_dir):
 
     # Evaluation process
     print("Start eval now:")
-    pred_file, truth_file = ntwk.evaluate()
+    pred_T_file, truth_T_file, pred_R_file, truth_R_file = ntwk.evaluate()
 
     # Plot the MSE distribution
-    plotMSELossDistrib_eval(pred_file, truth_file, flags)
+    plotMSELossDistrib_eval(pred_T_file, truth_T_file, flags)
     print("Evaluation finished")
 
 if __name__ == '__main__':
-    # Read the parameters to be set
+    # # Read the parameters to be set
     flags = fr.read_flag()
 
     # Call the train from flag function
     training_from_flag(flags)
 
-    # # Read the flag, however only the flags.eval_model is used and others are not used
+    # Train from pre-trained model using eval_model name
+    # continue_training_model(flags)
+
+    # Read the flag, however only the flags.eval_model is used and others are not used
     # useless_flags = fr.read_flag()
     #
     # print(useless_flags.eval_model)

@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (QFileDialog, QAbstractItemView, QListView,
 
 
 def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, xmin=20, xmax=40, num_points=1001,
-               num_osc = 10, title=None, figsize=[15, 10],
+               num_osc = 10, title=None, figsize=[12, 9],
                     y_axis='Test Variable', label_y1='Pred', label_y2='Pred y2'):
     """
     Function to plot the comparison for predicted spectra and truth spectra
@@ -53,6 +53,10 @@ def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, 
     ax21.plot(frequency, model.eps_out[index].imag.cpu().data.numpy(), color='r', label="e2")
     ax22.plot(frequency, model.mu_out[index].real.cpu().data.numpy(), label="mu1")
     ax22.plot(frequency, model.mu_out[index].imag.cpu().data.numpy(), color='r', label="mu2")
+    # ax21.plot(frequency, model.theta_out[index].real.cpu().data.numpy(), label="theta_re")
+    # ax21.plot(frequency, model.theta_out[index].imag.cpu().data.numpy(), color='r', label="theta_im")
+    # ax22.plot(frequency, model.adv_out[index].real.cpu().data.numpy(), label="adv_re")
+    # ax22.plot(frequency, model.adv_out[index].imag.cpu().data.numpy(), color='r', label="adv_im")
 
     ax11.legend()
     ax12.legend()
@@ -69,11 +73,18 @@ def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, 
                       prop=dict(size=10), frameon=True,
                       loc='lower left'
                       )
+
     at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+    at2 = AnchoredText("Geom: " + str(np.round(model.geom[index].cpu().data.numpy(), 4)),
+                      prop=dict(size=10), frameon=True,
+                      loc='upper left'
+                      )
+    at2.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+
     # f2,ax13 = plt.subplots(1,1,figsize=[10, 3])
     ax13.add_artist(at)
+    ax13.add_artist(at2)
     columns = ('eps w0', 'eps wp', 'eps g', 'mu w0', 'mu wp', 'mu g')
-    num_osc = 10
     table_data = np.empty((6, num_osc))
     table_data[0, :] = model.eps_params_out[0][index].cpu().data.numpy()
     table_data[1, :] = model.eps_params_out[1][index].cpu().data.numpy()
@@ -81,7 +92,6 @@ def plot_debug(logit1, tr1, logit2 = None, tr2 = None, model = None, index = 0, 
     table_data[3, :] = model.mu_params_out[0][index].cpu().data.numpy()
     table_data[4, :] = model.mu_params_out[1][index].cpu().data.numpy()
     table_data[5, :] = model.mu_params_out[2][index].cpu().data.numpy()
-
 
     table_data = np.round(table_data, 3)
     ax13.table(cellText=np.transpose(table_data), colLabels=columns, loc='center',fontsize=72)
