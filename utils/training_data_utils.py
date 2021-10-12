@@ -117,38 +117,38 @@ def hdf5_to_ascii(data_dir, out_dir, suffix='', batch_size=None, existing_batche
                                         + '_' + str(current_batch+existing_batches) + '.csv'), inputs, delimiter=',')
                 if S_params:
                     np.savetxt(os.path.join(out_dir, 'S11(Re)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), S11_re, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S11_re, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'S11(Im)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), S11_im, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S11_im, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'S21(Re)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), S21_re, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S21_re, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'S21(Im)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), S21_im, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), S21_im, delimiter=',', fmt="%.7f")
                 if spectra:
                     np.savetxt(os.path.join(out_dir, 'Trans_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_T, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_T, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Refl_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_R, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_R, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Abs_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_A, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), labels_A, delimiter=',', fmt="%.7f")
                 if opt_const:
                     np.savetxt(os.path.join(out_dir, 'Eps(Re)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), e1, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), e1, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Eps(Im)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), e2, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), e2, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Mu(Re)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), mu1, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), mu1, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Mu(Im)_' + suffix
-                                            + '_' + str(current_batch+existing_batches) + '.csv'), mu2, delimiter=',')
+                                            + '_' + str(current_batch+existing_batches) + '.csv'), mu2, delimiter=',', fmt="%.7f")
 
                     np.savetxt(os.path.join(out_dir, 'Eps_Av(Re)_' + suffix
-                                            + '_' + str(current_batch + existing_batches) + '.csv'), e1_av, delimiter=',')
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), e1_av, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Eps_Av(Im)_' + suffix
-                                            + '_' + str(current_batch + existing_batches) + '.csv'), e2_av, delimiter=',')
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), e2_av, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Mu_Av(Re)_' + suffix
-                                            + '_' + str(current_batch + existing_batches) + '.csv'), mu1_av, delimiter=',')
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), mu1_av, delimiter=',', fmt="%.7f")
                     np.savetxt(os.path.join(out_dir, 'Mu_Av(Im)_' + suffix
-                                            + '_' + str(current_batch + existing_batches) + '.csv'), mu2_av, delimiter=',')
+                                            + '_' + str(current_batch + existing_batches) + '.csv'), mu2_av, delimiter=',', fmt="%.7f")
 
                 new_batch = 1
 
@@ -221,12 +221,19 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
       """
 
     # Import data files
-    print('Importing data files...')
-    geom = importData(os.path.join(data_dir, 'training_data'), 'inputs')
-    s11_re = importData(os.path.join(data_dir, 'training_data'), 'S11(Re)')
-    s11_im = importData(os.path.join(data_dir, 'training_data'), 'S11(Im)')
-    s21_re = importData(os.path.join(data_dir, 'training_data'), 'S21(Re)')
-    s21_im = importData(os.path.join(data_dir, 'training_data'), 'S21(Im)')
+    # eval case
+    if test_ratio == 0:
+        folder_select = 'training_data/eval/'
+        test_ratio = 0.999
+        print('Importing data files from eval folder...')
+    else:
+        folder_select = 'training_data'
+        print('Importing data files...')
+    geom = importData(os.path.join(data_dir, folder_select), 'inputs')
+    s11_re = importData(os.path.join(data_dir, folder_select), 'S11(Re)')
+    s11_im = importData(os.path.join(data_dir, folder_select), 'S11(Im)')
+    s21_re = importData(os.path.join(data_dir, folder_select), 'S21(Re)')
+    s21_im = importData(os.path.join(data_dir, folder_select), 'S21(Im)')
     s11 = np.expand_dims(s11_re + 1j * s11_im, axis=2)
     s21 = np.expand_dims(s21_re - 1j * s21_im, axis=2)
     scat = np.concatenate((s11,s21),axis=2)
@@ -248,6 +255,8 @@ def generate_torch_dataloader(x_range, y_range, geoboundary, normalize_input=Tru
         #     indices.append(i)
         if geom[i,3] > 37 and geom[i,0] < 2.0:
             indices.append(i)
+        # if geom[i, 3] > 37:
+        #     indices.append(i)
 
     if (test_ratio > 0):
         print("Splitting data into training and test sets with a ratio of:", str(test_ratio))

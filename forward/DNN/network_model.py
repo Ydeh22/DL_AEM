@@ -28,6 +28,12 @@ class Forward(nn.Module):
             self.linears.append(nn.Linear(fc_num, flags.linear[ind + 1]))
             self.bn_linears.append(nn.BatchNorm1d(flags.linear[ind + 1]))
 
+        # out1 = nn.Linear(flags.linear[-1], self.flags.num_spec_points)
+        # out2 = nn.Linear(flags.linear[-1], self.flags.num_spec_points)
+        # out3 = nn.Linear(flags.linear[-1], self.flags.num_spec_points)
+        # out4 = nn.Linear(flags.linear[-1], self.flags.num_spec_points)
+
+
         # self.linears.append(nn.Linear(flags.linear[-1],flags.num_spec_points))
         # self.bn_linears.append(nn.BatchNorm1d(flags.linear[-1]))
 
@@ -63,7 +69,7 @@ class Forward(nn.Module):
         # For the linear part
         for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
             # print(out.size())
-            if ind < len(self.linears) - 1:
+            if ind != len(self.linears) - 1:
                 out = F.relu(bn(fc(out)))  # ReLU + BN + Linear
             else:
                 out = fc(out)

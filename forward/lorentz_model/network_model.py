@@ -20,7 +20,7 @@ class LorentzDNN(nn.Module):
     def __init__(self, flags):
         super(LorentzDNN, self).__init__()
         self.flags = flags
-
+        self.kill_osc = False
 
         # Create the constant for mapping the frequency w
         w_numpy = np.arange(flags.freq_low, flags.freq_high,
@@ -72,6 +72,8 @@ class LorentzDNN(nn.Module):
         :return: S: The 300 dimension spectra
         """
         out = G
+        batch_size = out.size()[0]
+
         self.geom = G
         # For the linear part
         for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
@@ -109,7 +111,7 @@ class LorentzDNN(nn.Module):
         #     p = p.unsqueeze(2)
 
         # Expand them to parallelize, (batch_size, #osc, #spec_point)
-        e_w0 = e_w0.unsqueeze(2).expand(out.size()[0], self.flags.num_lorentz_osc, self.flags.num_spec_points)
+        e_w0 = e_w0.unsqueeze(2).expand(batch_size, self.flags.num_lorentz_osc, self.flags.num_spec_points)
         e_wp = e_wp.unsqueeze(2).expand_as(e_w0)
         e_g = e_g.unsqueeze(2).expand_as(e_w0)
         m_w0 = m_w0.unsqueeze(2).expand_as(e_w0)
@@ -120,12 +122,24 @@ class LorentzDNN(nn.Module):
         #     p = p.expand_as(e_w0)
 
         w_expand = self.w.expand_as(e_w0)
-        w_2 = self.w.expand(out.size()[0],self.flags.num_spec_points)
+        w_2 = self.w.expand(batch_size,self.flags.num_spec_points)
 
         # Define dielectric functions
-
         e1, e2 = lorentzian(w_expand, abs(e_w0), abs(e_wp), abs(e_g))
         mu1, mu2 = lorentzian(w_expand, abs(m_w0), abs(m_wp), abs(m_g))
+
+        if self.kill_osc:
+
+            for o in range(self.flags.num_lorentz_osc):
+                if torch.max(e2[:,o,:]) < 1:
+                    # print('Zeroing osc: '+str(o))
+                    e2[:, o, :] = torch.zeros_like(e2[:, o, :])
+                    e1[:, o, :] = torch.zeros_like(e1[:, o, :])
+                if torch.max(mu2[:,o,:]) < 1:
+                    # print('Zeroing osc: '+str(o))
+                    mu2[:, o, :] = torch.zeros_like(mu2[:, o, :])
+                    mu1[:, o, :] = torch.zeros_like(mu1[:, o, :])
+
         e1 = torch.sum(e1, 1).type(torch.cfloat)
         e2 = torch.sum(e2, 1).type(torch.cfloat)
         eps_inf = e_inf.expand_as(e1).type(torch.cfloat)
@@ -174,8 +188,10 @@ class LorentzDNN(nn.Module):
         z_eff = sqrt(div(mu_eff, eps_eff))
         z = abs(z_eff.real) + 1j * z_eff.imag
 
-        self.eps_out = eps_eff
-        self.mu_out = mu_eff
+        self.eps_out = eps
+        self.mu_out = mu
+        self.eps_eff_out = eps_eff
+        self.mu_eff_out = mu_eff
         self.n_out = n
         self.theta_out = theta
         self.adv_out = magic

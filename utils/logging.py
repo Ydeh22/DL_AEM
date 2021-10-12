@@ -90,7 +90,7 @@ def load_flags(save_dir, save_file="flags.obj"):
     return flags
 
 # 8
-def write_flags_and_BVE(flags, best_validation_loss, save_dir):
+def write_flags_and_BVE(flags, best_validation_loss, best_mse_loss, save_dir):
     """
     The function that is usually executed at the end of the training where the flags and the best validation loss are recorded
     They are put in the folder that called this function and save as "parameters.txt"
@@ -100,6 +100,7 @@ def write_flags_and_BVE(flags, best_validation_loss, save_dir):
     :return: None
     """
     flags.best_validation_loss = best_validation_loss  # Change the y range to be acceptable long string
+    flags.best_mse_loss = best_mse_loss
     # To avoid terrible looking shape of y_range
     yrange = flags.y_range
     # yrange_str = str(yrange[0]) + ' to ' + str(yrange[-1])

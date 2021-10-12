@@ -19,17 +19,18 @@ import utils.flagreader as fr
 from utils.data_processing_tools.process_CST_data import get_model_input_parameters, \
     get_spectra, get_extracted_opt_const
 
-def plot_example_fits(model_name, w):
+def histogram_analysis(model_name, w):
 
     pytorch_dir = 'C:/Users/labuser/DL_AEM/forward/lorentz_model'
     # pytorch_dir = 'C:/Users/labuser/DL_AEM/forward/lorentz_model/models/'
-    eval_dir = os.path.join(pytorch_dir,'eval', model_name)
+    eval_dir = os.path.join(pytorch_dir,'eval', 'eval_' + model_name)
+    # eval_dir = os.path.join(pytorch_dir, 'models', model_name, 'eval_'+model_name)
     os.chdir(eval_dir)
 
     x_file = eval_dir + '/test_Xtruth_'+model_name+'.csv'
 
-    y1_file = eval_dir + '/test_Ytruth_' + model_name + '.csv'
-    y2_file = eval_dir + '/test_Ypred_' + model_name + '.csv'
+    y1_file = eval_dir + '/test_Ytruth_T_' + model_name + '.csv'
+    y2_file = eval_dir + '/test_Ypred_T_' + model_name + '.csv'
 
     df1 = pd.read_csv(y1_file, delimiter='\s', engine='python')
     df2 = pd.read_csv(y2_file, delimiter='\s', engine='python')
@@ -38,7 +39,9 @@ def plot_example_fits(model_name, w):
 
     x1 = df_in.values
 
-    geoboundary = [1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
+    geoboundary = [1.3, 0.975, 6, 37, 2.0, 3, 7, 43.749]
+    # geoboundary = [1.3, 0.975, 6, 34.539, 2.4, 3, 7, 43.749]
+    # geoboundary = [1.3, 0.975, 6, 34.539, 2.1, 3, 7, 43.749]
     for i in range(x1.shape[0]):
         x1[i] = de_normalize(x1[i], geoboundary)
 
@@ -59,7 +62,7 @@ def plot_example_fits(model_name, w):
 
     mse = ((df1.values - df2.values)**2).mean(axis=1)
     mse = np.expand_dims(mse,axis=1)
-    out = np.hstack((mse,x1))
+    out = np.hstack((x1,mse))
 
     # mse = ((data[1] - data[2]) ** 2).mean(axis=0)
     # print(mse)
@@ -74,16 +77,19 @@ def lorentzian_osc_from_model(model_name, w_numpy, input, save_dir='Test',
 
     model, geoboundary = load_saved_model(model_name)
     num_params = int(len(geoboundary) / 2)
-
+    print(geoboundary)
     cuda = True if torch.cuda.is_available() else False
 
     # geom = de_normalize(np.array([0.0, -0.0, 0.0, 0.0]),geoboundary)
 
     geom = input.copy()
+    # print(geom)
     for p in range(num_params):
         geom[p::num_params] = \
             (geom[p::num_params] - (geoboundary[p] +geoboundary[p+num_params]) / 2) / \
             (geoboundary[p+num_params] - geoboundary[p]) * 2
+
+    # print(geom)
 
     g_in = torch.tensor(geom, dtype=torch.float32).unsqueeze(dim=0)
     w = torch.tensor(w_numpy, dtype=torch.float32)
@@ -107,10 +113,16 @@ def lorentzian_osc_from_model(model_name, w_numpy, input, save_dir='Test',
     e2 = np.sum(eps_im, axis=0)
     mu1 = np.sum(mu_re, axis=0) + mu_inf
     mu2 = np.sum(mu_im, axis=0)
-    e1_eff = model.eps_out.squeeze().real.cpu().data.numpy()
-    e2_eff = model.eps_out.squeeze().imag.cpu().data.numpy()
-    mu1_eff = model.mu_out.squeeze().real.cpu().data.numpy()
-    mu2_eff = model.mu_out.squeeze().imag.cpu().data.numpy()
+    e1_eff = model.eps_eff_out.squeeze().real.cpu().data.numpy()
+    e2_eff = model.eps_eff_out.squeeze().imag.cpu().data.numpy()
+    mu1_eff = model.mu_eff_out.squeeze().real.cpu().data.numpy()
+    mu2_eff = model.mu_eff_out.squeeze().imag.cpu().data.numpy()
+    n1_eff = model.n_out.squeeze().real.cpu().data.numpy()
+    n2_eff = model.n_out.squeeze().imag.cpu().data.numpy()
+    theta1 = model.theta_out.squeeze().real.cpu().data.numpy()
+    theta2 = model.theta_out.squeeze().imag.cpu().data.numpy()
+    adv1 = model.adv_out.squeeze().real.cpu().data.numpy()
+    adv2 = model.adv_out.squeeze().imag.cpu().data.numpy()
 
     # fig3,ax1 = plt.subplots(1,1)
     # ax1.plot(w_numpy, e1_eff,w_numpy, e2_eff,w_numpy, mu1_eff,w_numpy, mu2_eff)
@@ -120,25 +132,33 @@ def lorentzian_osc_from_model(model_name, w_numpy, input, save_dir='Test',
         if os.path.isdir(save_dir) is False:
             os.mkdir(save_dir)
 
-        save_spectra_data = np.empty((15,w_numpy.shape[0]))
+        save_spectra_data = np.empty((22,w_numpy.shape[0]))
         save_spectra_data[0] = w_numpy
         save_spectra_data[1] = square(abs(pred_r)).cpu().data.numpy()
         save_spectra_data[2] = square(abs(pred_t)).cpu().data.numpy()
-        save_spectra_data[3] = pred_r.real.cpu().data.numpy()
-        save_spectra_data[4] = pred_r.imag.cpu().data.numpy()
-        save_spectra_data[5] = pred_t.real.cpu().data.numpy()
-        save_spectra_data[6] = pred_t.imag.cpu().data.numpy()
-        save_spectra_data[7] = e1_eff
-        save_spectra_data[8] = e2_eff
-        save_spectra_data[9] = mu1_eff
-        save_spectra_data[10] = mu2_eff
-        save_spectra_data[11] = e1
-        save_spectra_data[12] = e2
-        save_spectra_data[13] = mu1
-        save_spectra_data[14] = mu2
+        A = 1 - square(abs(pred_r)) - square(abs(pred_t))
+        save_spectra_data[3] = A.cpu().data.numpy()
+        save_spectra_data[4] = pred_r.real.cpu().data.numpy()
+        save_spectra_data[5] = pred_r.imag.cpu().data.numpy()
+        save_spectra_data[6] = pred_t.real.cpu().data.numpy()
+        save_spectra_data[7] = pred_t.imag.cpu().data.numpy()
+        save_spectra_data[8] = e1_eff
+        save_spectra_data[9] = e2_eff
+        save_spectra_data[10] = mu1_eff
+        save_spectra_data[11] = mu2_eff
+        save_spectra_data[12] = e1
+        save_spectra_data[13] = e2
+        save_spectra_data[14] = mu1
+        save_spectra_data[15] = mu2
+        save_spectra_data[16] = n1_eff
+        save_spectra_data[17] = np.abs(n2_eff)
+        save_spectra_data[18] = theta1
+        save_spectra_data[19] = np.abs(theta2)
+        save_spectra_data[20] = adv1
+        save_spectra_data[21] = np.abs(adv2)
 
         header_spectra = \
-            'w\tR\tT\ts11(re)\ts11(im)\ts21(re)\ts21(im)\te1_eff\te2_eff\tmu1_eff\tmu2_eff\te1\te2\tmu1\tmu2'
+            'w\tR\tT\tA\ts11(re)\ts11(im)\ts21(re)\ts21(im)\te1_eff\te2_eff\tmu1_eff\tmu2_eff\te1\te2\tmu1\tmu2\tn1_eff\tn2_eff\ttheta1\ttheta2\tadv1\tadv2'
         if os.path.isdir(os.path.join(save_dir, 'Spectra')) is False:
             os.mkdir(os.path.join(save_dir, 'Spectra'))
         save_name_spectra = os.path.join(save_dir, 'Spectra', save_name + '_Spectra.txt')
@@ -357,9 +377,62 @@ def compare_cst_sim(data_dir, save_dir, sim_name, model_inputs, w):
     data[9] = np.abs(eps.imag)
     data[10] = mu.real
     data[11] = np.abs(mu.imag)
-    np.savetxt(os.path.join(save_folder,'Spectra',sim_name+'_CST_Spectra.txt'), np.transpose(data), header=header, delimiter='\t')
+    np.savetxt(os.path.join(save_folder,sim_name+'_CST_Spectra.txt'), np.transpose(data), header=header, delimiter='\t')
     lorentzian_osc_from_model(model_name, w, geom, save_dir=save_folder, save_name=sim_name+'_DNN',
                                   save_spectra=True, save_params=False, save_osc=False)
+
+def sweep_analysis_2D(data_dir, type, channel, var1, var2):
+
+    print('Sweep analysis')
+    vars = ['r','h','p','n']
+    os.chdir(data_dir)
+    save_path = os.path.join(data_dir,'processed_output')
+    if os.path.exists(save_path) is False:
+        os.mkdir(save_path)
+
+    folder_list = os.listdir(data_dir)
+
+    for folder in folder_list:
+        if 'processed_output' in folder:
+            continue
+
+        folder_index = folder.split('_')[-1]
+
+        if type == 'Spectra' or type == 'Oscillators':
+            datapath = os.path.join(data_dir,folder,type)
+            os.chdir(datapath)
+            data_index = 1
+            data_files = os.listdir(datapath)
+
+            with open(data_files[0]) as f:
+                header = f.readlines()[0]
+                header = header.split('\t')
+                for ind,var in enumerate(header):
+                    if channel == var:
+                        data_index = ind
+                        break
+            f.close()
+            all_data = np.loadtxt(data_files[0], delimiter='\t')
+            data = all_data[:,0]
+            data = np.vstack((data,all_data[:,data_index]))
+            params = data_files[0].split('[')[1].split(']')[0].split(' ')[:-1]
+            h1 = vars[var1] + '\t' + params[var1] + '\t'
+            h2 = vars[var2] + '\t' + params[var2] + '\t'
+            h3 = 'Freq\t' + channel + '\t'
+
+            for file in data_files[1:]:
+                all_data = np.loadtxt(file, delimiter='\t')
+                data = np.vstack((data, all_data[:, data_index]))
+                params = file.split('[')[1].split(']')[0].split(' ')[:-1]
+                h1 += params[var1] + '\t'
+                h2 += params[var2] + '\t'
+                h3 += channel + '\t'
+
+            header = h1 + '\n' + h2 + '\n' + h3
+            save_file = os.path.join(save_path,channel+'_'+vars[var1]+params[var1]+'_'+vars[var2]+params[var2]+'_sweep_'+folder_index+'.txt')
+            np.savetxt(save_file, np.transpose(data), header=header, delimiter='\t')
+
+
 
 if __name__=='__main__':
 
@@ -368,7 +441,13 @@ if __name__=='__main__':
     # model_name = '20210615_135030'
     # model_name = '20210615_162928'
     # model_name = '20210615_162928_MSE2.7e-3'
-    model_name = '20210623_110838'
+    # model_name = '20210623_110838'
+    # model_name = '20210707_144412_MSE1.6e-3'
+    # model_name = '20210804_110658_MSE2.6e-3'   # 10 osc
+    # model_name = '20210801_113315_MSE1.6e-3'  # 10 osc
+    # model_name = '20210806_101530_eval'  # 4 osc
+    model_name = '20210918_181306_paper'
+
 
     # models_dir = 'C:/Users/Omar/PycharmProjects/DL_AEM/forward/lorentz_model/models'
     models_dir = 'C:/Users/labuser/DL_AEM/forward/lorentz_model/models/'
@@ -380,14 +459,15 @@ if __name__=='__main__':
     # evaluate_from_model(model_name)
 
     # cst_folder = 'C:/Users/Omar/OneDrive - Duke University/Padilla Group/DL Datasets/OK_Thermal_CST/ADM_SingleCyl_Thermal_IR/Export'
-    cst_folder = 'D:/Omar/Data/CST ML sims (raw export folders)/ADM_SingleCyl_Thermal_IR'
+    # cst_folder = 'D:/Omar/Data/CST ML sims (raw export folders)/ADM_SingleCyl_Thermal_IR'
+    cst_folder = 'D:/Omar/OneDrive - Duke University/Padilla Group/Manuscripts/Lorentz DNN/Data/Simulations/Perfect absorption'
 
     freq_low = 20.02
     freq_high = 40
     num_points = 500
     w = generate_freq_axis(freq_low, freq_high, num_points)
 
-    plot_example_fits(model_name,w)
+    # histogram_analysis(model_name,w)
 
     # geom = [r, h, p, loss]
     # r_min = 1.3,   r_max = 2.4
@@ -399,8 +479,10 @@ if __name__=='__main__':
     # # sim_name = '0603-5649000'
     # # sim_name = '0603-5654684'
     # # sim_name = '0603-5675689'
-    # model_inputs = ['r', 'h', 'p', 'log_n_Si']
-    #
+    # sim_name = '0628-6822955'
+    sim_name = '0608-7668848'
+    model_inputs = ['r', 'h', 'p', 'log_n_Si']
+
     # compare_cst_sim(cst_folder,model_dir,sim_name,model_inputs,w)
 
     # r = 1.5783
@@ -408,35 +490,58 @@ if __name__=='__main__':
     # p = 6.006
     # log_n_Si = 42.222502850232
 
-
-
-
+    # r = 1.9951
+    # h = 1.2585
+    # p = 6.856
+    # log_n_Si = 40.6748305
+    #
     # geom = np.array([r, h, p, log_n_Si])
+    #
 
-    # lorentzian_osc_from_model(model_name, w, geom, save_dir='CST_Comp', save_name='Test',
-    #                               save_spectra=True, save_params=False, save_osc=False)
 
-    # i = 10
-    # geom = np.array([2, 1+i*0.2, 6.5, 40])
-    # lorentzian_osc_from_model(model_name, w, geom, save_name='h_sweep_r=2_' + str(i),
-    #                           save_spectra=True, save_params=False, save_osc=True)
+    geom = np.array([1.79385, 2.69625, 6.481, 41.8289095])
 
-    # geom = np.array([1.3, 1, 6.0, 40])
-    # sweep_num = 10
+    lorentzian_osc_from_model(model_name, w, geom, save_dir='CST_Comp', save_name='4modes_new',
+                                  save_spectra=True, save_params=True, save_osc=True)
+
+
+    # for i in range(25):
+    #     geom = np.array([1.9, 1.0+i*0.08, 7, 43.5])
+    #     # geom = np.array([1.9, 1.72, 6 + i * 0.04, 43.5])
+    #     geometry = np.round(geom, 3).astype(str)
+    #     geo_str = '['
+    #     for k in range(geometry.shape[0]):
+    #         geo_str += str(geometry[k])+' '
+    #     geo_str += ']'
+    #     save_dir = 'p_sweep_r=1.9_Abs'
+    #     sweep_name = save_dir + '_' + geo_str
+    #     lorentzian_osc_from_model(model_name, w, geom, save_dir=save_dir, save_name=sweep_name,
+    #                               save_spectra=True, save_params=True, save_osc=True)
+    # lor_parameter_sweep_analysis(2, model_name, save_dir, save_name=save_dir + '_params')
+
+    # geom = np.array([2, 1.66, 6.3, 44])
+    # sweep_num = 101
 
     # for i in range(sweep_num):
-    #     geom[2] = 6.0+i*(0.1)
-    #     geometry = np.round(geom,3).astype(str)
+    #     # geom[0] = 2.0 + i * (0.01)
+    #     geom[3] = geom[3] = 40.5 + i * (0.035)
+    #     save_directory = '2D_sweep_' + 'abs_loss_3_' + str(i)
+    #     for k in range(sweep_num):
+    #         geom[1] = 2 / (1.15 + k * 0.0085)
+    #         # geom[3] = 44 - k * (0.01)
+    #         geometry = np.round(geom,3).astype(str)
     #
-    #     geo_str = '['
-    #     for i in range(geometry.shape[0]):
-    #         geo_str += str(geometry[i])+' '
-    #     geo_str += ']'
+    #         geo_str = '['
+    #         for m in range(geometry.shape[0]):
+    #             geo_str += str(geometry[m])+' '
+    #         geo_str += ']'
     #
+    #         # save_directory = '2D_sweep_'+'h_'+str(k)
     #
-    #     lorentzian_osc_from_model(model_name, w, geom, save_dir='p_Sweep1', save_name='p_S_'+geo_str,
-    #                               save_spectra=True, save_params=True, save_osc=True)
+    #         lorentzian_osc_from_model(model_name, w, geom, save_dir=save_directory, save_name='hn_S_'+geo_str,
+    #                                   save_spectra=True, save_params=True, save_osc=True)
+    #     lor_parameter_sweep_analysis(1, model_name, save_directory, save_name=save_directory + '_params2D')
 
 
-    # sweep_name = 'p_Sweep1'
-    # lor_parameter_sweep_analysis(2, model_name, sweep_name, save_name=sweep_name+'_params')
+    # sweep_name = '2D_sweep_abs_loss_3'
+    # sweep_analysis_2D(os.path.join(model_dir, sweep_name), 'Spectra', 'A', 1, 3)

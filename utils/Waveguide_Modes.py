@@ -90,7 +90,7 @@ def hybrid_mode(r,h,log_n,mode):
             y1,y2 = hybrid_mode_EH_graphical(r,h,log_n,f0)
             return y1 - y2
 
-        f_res = fsolve(hybrid_mode_EH_solve, [30])
+        f_res = fsolve(hybrid_mode_EH_solve, [45])
 
         return f_res
 
@@ -100,7 +100,7 @@ def hybrid_mode(r,h,log_n,mode):
             y1, y2 = hybrid_mode_HE_graphical(r, h, log_n, f0)
             return y1 - y2
 
-        f_res = fsolve(hybrid_mode_HE_solve, [33])
+        f_res = fsolve(hybrid_mode_HE_solve, [20])
         return f_res
 
 if __name__ == "__main__":
@@ -108,10 +108,10 @@ if __name__ == "__main__":
     # f0 = hybrid_mode(1.5,1.5,35,'HE')
     # print(f0)
 
-    for i in range(10):
+    for i in range(21):
         r = 1.3 + 0.1*i
-        f0 = hybrid_mode(r, 1.5, 35, 'HE')
-        print(f0)
+        f0 = hybrid_mode(r, 1.6, 41, 'EH')
+        print(f0[0])
 
     # res = 1000
     # f = np.linspace(20,40,res)

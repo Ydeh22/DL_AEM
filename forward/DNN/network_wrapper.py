@@ -52,7 +52,7 @@ class Network(object):
         self.log = SummaryWriter(self.ckpt_dir)     # Create a summary writer for tensorboard
         self.best_validation_loss = float('inf')    # Set the BVL to large number
         self.best_pretrain_loss = float('inf')
-        self.running_loss = []
+        self.best_mse_loss = float('inf')
 
     def create_model(self):
         """
@@ -84,16 +84,21 @@ class Network(object):
 
         if logit is None:
             return None
-        # loss1 = nn.functional.mse_loss(logit1.real.float(), labels[:, : ,0].real.float(), reduction='mean')
-        # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
-        # loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
-        # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
-        # custom_loss = loss1 + loss2 + loss3 + loss4
+        loss1 = nn.functional.mse_loss(logit[:,:500].float(), labels[:, : ,0].real.float(), reduction='mean')
+        loss2 = nn.functional.mse_loss(logit[:,500:1000].float(), labels[:, :, 0].imag.float(), reduction='mean')
+        loss3 = nn.functional.mse_loss(logit[:,1000:1500].float(), labels[:, :, 1].real.float(), reduction='mean')
+        loss4 = nn.functional.mse_loss(logit[:,1500:].float(), labels[:, :, 1].imag.float(), reduction='mean')
+        custom_loss = (loss1 + loss2 + loss3 + loss4)/4
 
-        # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
-        loss1 = 0
-        loss2 = nn.functional.mse_loss(logit.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
-        custom_loss = loss1 + loss2
+        # T_loss = nn.functional.mse_loss((square(logit[:, 1000:1500]) + square(logit[:, 1500:])).float(),
+        #                                 square(abs(labels[:, :, 1])).float(), reduction='mean')
+        # R_loss = nn.functional.mse_loss((square(logit[:, :500]) + square(logit[:, 500:1000])).float(),
+        #                                 square(abs(labels[:, :, 0])).float(), reduction='mean')
+        # custom_loss = (T_loss+R_loss)/2
+        # # loss1 = nn.functional.mse_loss(logit1.float(), square(abs(labels[:, :, 0])).float(), reduction='mean')
+        # loss1 = 0
+        # loss2 = nn.functional.mse_loss(logit.float(), square(abs(labels[:, :, 1])).float(), reduction='mean')
+        # custom_loss = loss1 + loss2
 
         return custom_loss
 
@@ -163,24 +168,32 @@ class Network(object):
         self.model.eval()                       # Evaluation mode
 
         # Get the file names
-        Ypred_file = os.path.join(save_dir, 'test_Ypred_{}.csv'.format(self.saved_model))
+        Ypred_T_file = os.path.join(save_dir, 'test_Ypred_T_{}.csv'.format(self.saved_model))
+        Ypred_R_file = os.path.join(save_dir, 'test_Ypred_R_{}.csv'.format(self.saved_model))
         Xtruth_file = os.path.join(save_dir, 'test_Xtruth_{}.csv'.format(self.saved_model))
-        Ytruth_file = os.path.join(save_dir, 'test_Ytruth_{}.csv'.format(self.saved_model))
+        Ytruth_T_file = os.path.join(save_dir, 'test_Ytruth_T_{}.csv'.format(self.saved_model))
+        Ytruth_R_file = os.path.join(save_dir, 'test_Ytruth_R_{}.csv'.format(self.saved_model))
         # Xpred_file = os.path.join(save_dir, 'test_Xpred_{}.csv'.format(self.saved_model))  # For pure forward model, there is no Xpred
 
         # Open those files to append
-        with open(Xtruth_file, 'a') as fxt,open(Ytruth_file, 'a') as fyt, open(Ypred_file, 'a') as fyp:
+        with open(Xtruth_file, 'a') as fxt, open(Ytruth_T_file, 'a') as fyt_1, open(Ypred_T_file, 'a') as fyp_1, \
+                open(Ytruth_R_file, 'a') as fyt_2, open(Ypred_R_file, 'a') as fyp_2:
             # Loop through the eval data and evaluate
             with torch.no_grad():
                 for ind, (geometry, spectra) in enumerate(self.test_loader):
                     if cuda:
                         geometry = geometry.cuda()
                         spectra = spectra.cuda()
-                    logit = self.model(geometry)
+                    logit = self.model(geometry)  # Get the output
+
                     np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyt, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
-                    np.savetxt(fyp, logit.cpu().data.numpy(), fmt='%.3f')
-        return Ypred_file, Ytruth_file
+                    np.savetxt(fyt_1, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyp_1, (square(logit[:, 1000:1500]) + square(logit[:, 1500:])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyt_2, square(abs(spectra[:, :, 0])).cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fyp_2, (square(logit[:, :500]) + square(logit[:, 500:1000])).cpu().data.numpy(), fmt='%.3f')
+
+
+        return Ypred_T_file, Ytruth_T_file, Ypred_R_file, Ytruth_R_file
 
     def train(self):
         """
@@ -197,13 +210,14 @@ class Network(object):
         self.lr_scheduler = self.make_lr_scheduler()
         self.init_weights()
 
-        # # Start a tensorboard session for logging loss and training images
-        # tb = program.TensorBoard()
-        # tb.configure(argv=[None, '--logdir', self.ckpt_dir])
-        # url = tb.launch()
-        # print("TensorBoard started at %s" % url)
+        # Start a tensorboard session for logging loss and training images
+        tb = program.TensorBoard()
+        tb.configure(argv=[None, '--logdir', self.ckpt_dir])
+        url = tb.launch()
+        print("TensorBoard started at %s" % url)
 
         for epoch in range(self.flags.train_step):
+
             # print("This is training Epoch {}".format(epoch))
             # Set to Training Mode
             train_loss = []
@@ -217,8 +231,8 @@ class Network(object):
 
                 self.optm.zero_grad()  # Zero the gradient first
                 logit = self.model(geometry)  # Get the output
-                loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
-                # loss = self.make_custom_loss(pred_r, pred_t, spectra)
+                # loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
+                loss = self.make_custom_loss(logit, spectra)
 
                 # if j == 0 and epoch == 0:
                 #     im = make_dot(loss, params=dict(self.model.named_parameters())).render("Model Graph",
@@ -233,25 +247,35 @@ class Network(object):
                         # torch.nn.utils.clip_grad_value_(self.model.parameters(), self.flags.grad_clip)
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.flags.grad_clip)
 
-                if epoch % self.flags.record_step == 0:
-                    if j == 0:
-                        for k in range(self.flags.num_plot_compare):
-                            # test_var = self.model.test_var
-                            f = plot_complex(logit1=logit[k, :].cpu().data.numpy(),
-                                             tr1=square(abs(spectra[k,:,1])).cpu().data.numpy(),
-                                             xmin=self.flags.freq_low,
-                                             xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
-                                             y_axis='Transmission', label_y1='DNN', label_y2='Truth')
-
-                            self.log.add_figure(tag='Test ' + str(k) + ') Sample Transmission Spectrum'.format(1),
-                                                figure=f, global_step=epoch)
+                # if epoch % self.flags.record_step == 0:
+                #     if j == 0:
+                #         for k in range(self.flags.num_plot_compare):
+                #             # test_var = self.model.test_var
+                #             # f = plot_complex(logit1=logit[k, 500:1000].cpu().data.numpy(),
+                #             #                  tr1=spectra[k, : ,0].imag.cpu().data.numpy(),
+                #             #                  logit2=logit[k, 1500:2000].cpu().data.numpy(),
+                #             #                  tr2=spectra[k, :, 1].imag.cpu().data.numpy(),
+                #             #                  xmin=self.flags.freq_low,
+                #             #                  xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                #             #                  y_axis='r,t (im)', label_y1='DNN', label_y2='Truth')
+                #
+                #             f = plot_complex(logit1=(square(logit[k, 1000:1500])+square(logit[k, 1500:])).cpu().data.numpy(),
+                #                              tr1=square(abs(spectra[k, :, 1])).cpu().data.numpy(),
+                #                              xmin=self.flags.freq_low,
+                #                              xmax=self.flags.freq_high, num_points=self.flags.num_spec_points,
+                #                              y_axis='Transmission', label_y1='DNN', label_y2='Truth')
+                #
+                #
+                #             self.log.add_figure(tag='Test ' + str(k) + ') Sample Spectrum'.format(1),
+                #                                 figure=f, global_step=epoch)
 
                 self.optm.step()  # Move one step the optimizer
                 train_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
 
                 self.model.eval()
                 logit = self.model(geometry)  # Get the output
-                loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
+                # loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
+                loss = self.make_custom_loss(logit, spectra)
                 train_loss_eval_mode_list.append(np.copy(loss.cpu().data.numpy()))
                 self.model.train()
 
@@ -275,9 +299,12 @@ class Network(object):
                             geometry = geometry.cuda()
                             spectra = spectra.cuda()
                         logit = self.model(geometry)  # Get the output
-                        loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
-
+                        # loss = self.make_MSE_loss(logit.float(), square(abs(spectra[:,:,1])).float())
+                        loss = self.make_custom_loss(logit, spectra)
+                        T_loss = nn.functional.mse_loss((square(logit[:,1000:1500])+square(logit[:,1500:])).float(),
+                                                        square(abs(spectra[:, :, 1])).float(), reduction='mean')
                         test_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
+                        test_loss2.append(np.copy(T_loss.cpu().data.numpy()))  # Aggregate the loss
 
                         # if j == 0 and epoch > 10 and epoch % self.flags.record_step == 0:
                         #     # f2 = plotMSELossDistrib(test_loss)
@@ -287,14 +314,17 @@ class Network(object):
 
                 # Record the testing loss to the tensorboard
                 test_avg_loss = np.mean(test_loss)
+                test_avg_loss2 = np.mean(test_loss2)
                 self.log.add_scalar('Loss/ Validation Loss', test_avg_loss, epoch)
+                self.log.add_scalar('Loss/ T Loss', test_avg_loss2, epoch)
 
-                print("This is Epoch %d, training loss %.5f, validation loss %.5f" \
-                      % (epoch, train_avg_eval_mode_loss, test_avg_loss))
+                print("This is Epoch %d, training loss %.5f, validation loss %.5f, Trans loss %.5f" \
+                      % (epoch, train_avg_eval_mode_loss, test_avg_loss, test_avg_loss2))
 
                 # Model improving, save the model
                 if test_avg_loss < self.best_validation_loss:
                     self.best_validation_loss = test_avg_loss
+                    self.best_mse_loss = test_avg_loss2
                     self.save()
                     print("Saving the model...")
 

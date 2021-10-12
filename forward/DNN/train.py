@@ -49,7 +49,7 @@ def training_from_flag(flags):
     ntwk.train()
 
     # Do the house keeping, write the parameters and put into folder, also use pickle to save the flags object
-    write_flags_and_BVE(flags, ntwk.best_validation_loss, ntwk.ckpt_dir)
+    write_flags_and_BVE(flags, ntwk.best_validation_loss, ntwk.best_mse_loss, ntwk.ckpt_dir)
     # put_param_into_folder(ntwk.ckpt_dir)
 
 def evaluate_from_model(model_dir):
@@ -74,7 +74,7 @@ def evaluate_from_model(model_dir):
                                                              batch_size=flags.batch_size,
                                                              normalize_input=flags.normalize_input,
                                                              data_dir=flags.data_dir,
-                                                             test_ratio=0.999,shuffle=False)
+                                                             test_ratio=0,shuffle=False)
 
     print("Making network now")
 
@@ -83,10 +83,10 @@ def evaluate_from_model(model_dir):
 
     # Evaluation process
     print("Start eval now:")
-    pred_file, truth_file = ntwk.evaluate()
+    pred_T_file, truth_T_file, pred_R_file, truth_R_file = ntwk.evaluate()
 
     # Plot the MSE distribution
-    plotMSELossDistrib_eval(pred_file, truth_file, flags)
+    plotMSELossDistrib_eval(pred_T_file, truth_T_file, flags)
     print("Evaluation finished")
 
 
@@ -103,17 +103,17 @@ def evaluate_all(models_dir="models"):
 
 if __name__ == '__main__':
     # Read the parameters to be set
-    flags = fr.read_flag()
-
-    # Call the train from flag function
-    training_from_flag(flags)
-
-    # Read the flag, however only the flags.eval_model is used and others are not used
-    # useless_flags = fr.read_flag()
+    # flags = fr.read_flag()
     #
-    # print(useless_flags.eval_model)
-    # # Call the evaluate function from model
-    # evaluate_from_model(useless_flags.eval_model)
+    # # Call the train from flag function
+    # training_from_flag(flags)
+
+    # # Read the flag, however only the flags.eval_model is used and others are not used
+    useless_flags = fr.read_flag()
+
+    print(useless_flags.eval_model)
+    # Call the evaluate function from model
+    evaluate_from_model(useless_flags.eval_model)
 
 
 

@@ -18,6 +18,7 @@ from torchviz import make_dot
 from utils.plotting import plot_weights_3D, plotMSELossDistrib, \
     compare_spectra, compare_spectra_with_params, plot_complex, plot_debug
 import utils.sgld_optim as sgld
+import wandb
 
 # Libs
 import matplotlib
@@ -53,7 +54,7 @@ class Network(object):
         self.lr_scheduler = None                                # The lr scheduler: Initialized at train()
         self.train_loader = train_loader                        # The train data loader
         self.test_loader = test_loader                          # The test data loader
-        self.log = SummaryWriter(self.ckpt_dir)     # Create a summary writer for tensorboard
+        # self.log = SummaryWriter(self.ckpt_dir)     # Create a summary writer for tensorboard
         self.best_validation_loss = float('inf')    # Set the BVL to large number
         self.best_mse_loss = float('inf')
 
@@ -93,8 +94,8 @@ class Network(object):
         # loss2 = nn.functional.mse_loss(logit1.imag.float(), labels[:, :, 0].imag.float(), reduction='mean')
         # loss3 = nn.functional.mse_loss(logit2.real.float(), labels[:, :, 1].real.float(), reduction='mean')
         # loss4 = nn.functional.mse_loss(logit2.imag.float(), labels[:, :, 1].imag.float(), reduction='mean')
-        # # # # loss1 = 0
-        # # # # loss2 = 0
+        # # # # # loss1 = 0
+        # # # # # loss2 = 0
         # custom_loss = loss1 + loss2 + loss3 + loss4
 
 
@@ -126,8 +127,8 @@ class Network(object):
         for layer_name, child in self.model.named_children():
             for param in self.model.parameters():
                 if ('_w0' in layer_name):
-                    # torch.nn.init.uniform_(child.weight, a=0.0, b=1.5)
-                    torch.nn.init.uniform_(child.weight, a=0.0, b=3)
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=1.5)
+                    # torch.nn.init.uniform_(child.weight, a=0.0, b=3)
                     # torch.nn.init.xavier_uniform_(child.weight)
                 elif ('_wp' in layer_name):
                     torch.nn.init.uniform_(child.weight, a=0.0, b=0.3)
@@ -250,6 +251,87 @@ class Network(object):
 
         return Ypred_T_file, Ytruth_T_file, Ypred_R_file, Ytruth_R_file
 
+    def evaluate_all_output(self, save_dir='eval/'):
+        self.load()                             # load the model as constructed
+        cuda = True if torch.cuda.is_available() else False
+        if cuda:
+            self.model.cuda()
+        self.model.eval()                       # Evaluation mode
+
+        # Get the file names
+        # Ypred_T_file = os.path.join(save_dir, 'test_Ypred_T_{}.csv'.format(self.saved_model))
+        # Ypred_R_file = os.path.join(save_dir, 'test_Ypred_R_{}.csv'.format(self.saved_model))
+        # Xtruth_file = os.path.join(save_dir, 'test_Xtruth_{}.csv'.format(self.saved_model))
+        # Ytruth_T_file = os.path.join(save_dir, 'test_Ytruth_T_{}.csv'.format(self.saved_model))
+        # Ytruth_R_file = os.path.join(save_dir, 'test_Ytruth_R_{}.csv'.format(self.saved_model))
+        # Xpred_file = os.path.join(save_dir, 'test_Xpred_{}.csv'.format(self.saved_model))  # For pure forward model, there is no Xpred
+
+        eps_re_file = os.path.join(save_dir, 'test_eps_re_{}.csv'.format(self.saved_model))
+        eps_im_file = os.path.join(save_dir, 'test_eps_im_{}.csv'.format(self.saved_model))
+        mu_re_file = os.path.join(save_dir, 'test_mu_re_{}.csv'.format(self.saved_model))
+        mu_im_file = os.path.join(save_dir, 'test_mu_im_{}.csv'.format(self.saved_model))
+        eps_eff_re_file = os.path.join(save_dir, 'test_eps_eff_re_{}.csv'.format(self.saved_model))
+        eps_eff_im_file = os.path.join(save_dir, 'test_eps_eff_im_{}.csv'.format(self.saved_model))
+        mu_eff_re_file = os.path.join(save_dir, 'test_mu_eff_re_{}.csv'.format(self.saved_model))
+        mu_eff_im_file = os.path.join(save_dir, 'test_mu_eff_im_{}.csv'.format(self.saved_model))
+        n_eff_re_file = os.path.join(save_dir, 'test_n_eff_re_{}.csv'.format(self.saved_model))
+        n_eff_im_file = os.path.join(save_dir, 'test_n_eff_im_{}.csv'.format(self.saved_model))
+        theta_re_file = os.path.join(save_dir, 'test_theta_re_{}.csv'.format(self.saved_model))
+        theta_im_file = os.path.join(save_dir, 'test_theta_im_{}.csv'.format(self.saved_model))
+        adv_re_file = os.path.join(save_dir, 'test_adv_re_{}.csv'.format(self.saved_model))
+        adv_im_file = os.path.join(save_dir, 'test_adv_im_{}.csv'.format(self.saved_model))
+
+        # eps_param_file = os.path.join(save_dir, 'test_eps_param_{}.csv'.format(self.saved_model))
+        # mu_param_file = os.path.join(save_dir, 'test_mu_param_{}.csv'.format(self.saved_model))
+
+        # Open those files to append
+        with open(eps_re_file, 'a') as fep_re, open(eps_im_file, 'a') as fep_im, \
+            open(mu_re_file, 'a') as fmu_re, open(mu_im_file, 'a') as fmu_im, \
+            open(eps_eff_re_file, 'a') as fepeff_re, open(eps_eff_im_file, 'a') as fepeff_im, \
+            open(mu_eff_re_file, 'a') as fmueff_re, open(mu_eff_im_file, 'a') as fmueff_im, \
+            open(n_eff_re_file, 'a') as fneff_re, open(n_eff_im_file, 'a') as fneff_im, \
+            open(theta_re_file, 'a') as ftheta_re, open(theta_im_file, 'a') as ftheta_im, \
+            open(adv_re_file, 'a') as fadv_re, open(adv_im_file, 'a') as fadv_im:
+            # open(eps_param_file, 'a') as fepp, open(mu_param_file, 'a') as fmup:
+
+            # Loop through the eval data and evaluate
+            with torch.no_grad():
+                for ind, (geometry, spectra) in enumerate(self.test_loader):
+                    if cuda:
+                        geometry = geometry.cuda()
+                        spectra = spectra.cuda()
+                    pred_r, pred_t = self.model(geometry)  # Get the output
+
+                    # np.savetxt(fxt, geometry.cpu().data.numpy(), fmt='%.3f')
+                    # np.savetxt(fyt_1, square(abs(spectra[:, :, 1])).cpu().data.numpy(), fmt='%.3f')
+                    # np.savetxt(fyp_1, square(abs(pred_t)).cpu().data.numpy(), fmt='%.3f')
+                    # np.savetxt(fyt_2, square(abs(spectra[:, :, 0])).cpu().data.numpy(), fmt='%.3f')
+                    # np.savetxt(fyp_2, square(abs(pred_r)).cpu().data.numpy(), fmt='%.3f')
+
+                    np.savetxt(fep_re, self.model.eps_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fep_im, self.model.eps_out.imag.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fmu_re, self.model.mu_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fmu_im, self.model.mu_out.imag.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fepeff_re, self.model.eps_eff_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fepeff_im, self.model.eps_eff_out.imag.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fmueff_re, self.model.mu_eff_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fmueff_im, self.model.mu_eff_out.imag.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fneff_re, self.model.n_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fneff_im, self.model.n_out.imag.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(ftheta_re, self.model.theta_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(ftheta_im, self.model.theta_out.imag.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fadv_re, self.model.adv_out.real.cpu().data.numpy(), fmt='%.3f')
+                    np.savetxt(fadv_im, self.model.adv_out.imag.cpu().data.numpy(), fmt='%.3f')
+
+                    # np.savetxt(fepp, self.model.eps_params_out.cpu().data.numpy(), fmt='%.3f')
+                    # np.savetxt(fmup, self.model.mu_params_out.cpu().data.numpy(), fmt='%.3f')
+
+        return eps_re_file, eps_im_file, mu_re_file, mu_im_file,\
+               eps_eff_re_file, eps_eff_im_file, mu_eff_re_file, mu_eff_im_file, n_eff_re_file, n_eff_im_file, \
+                theta_re_file, theta_im_file, adv_re_file, adv_im_file
+                #  eps_param_file, mu_param_file
+
+
     def record_weight(self, name='Weights', layer=None, batch=999, epoch=999):
         """
         Record the weights for a specific layer to tensorboard (save to file if desired)
@@ -324,18 +406,25 @@ class Network(object):
         self.lr_scheduler = self.make_lr_scheduler()
 
         # # Start a tensorboard session for logging loss and training images
-        tb = program.TensorBoard()
-        tb.configure(argv=[None, '--logdir', self.ckpt_dir])
-        url = tb.launch()
-        print("TensorBoard started at %s" % url)
+        # tb = program.TensorBoard()
+        # tb.configure(argv=[None, '--logdir', self.ckpt_dir])
+        # url = tb.launch()
+        # print("TensorBoard started at %s" % url)
+        #
+        # wandb.init(project='LNN-Training')
+
 
         for epoch in range(self.flags.train_step):
+
+            if epoch == 1000:
+                self.model.kill_osc = True
+
             # print("This is training Epoch {}".format(epoch))
             # Set to Training Mode
             train_loss = []
             train_loss_eval_mode_list = []
             self.model.train()
-            # self.add_network_noise()
+
             for j, (geometry, spectra) in enumerate(self.train_loader):
 
                 if cuda:
@@ -436,6 +525,7 @@ class Network(object):
             if epoch % self.flags.eval_step == 0:           # For eval steps, do the evaluations and tensor board
                 # Record the training loss to tensorboard
                 self.log.add_scalar('Loss/ Training Loss', train_avg_loss, epoch)
+                wandb.log({'loss': train_avg_loss, 'epoch': epoch })
                 # self.log.add_scalar('Loss/ Batchnorm Training Loss', train_avg_eval_mode_loss, epoch)
 
                 # Set to Evaluation Mode
@@ -465,6 +555,9 @@ class Network(object):
                 test_avg_loss2 = np.mean(test_loss2)
                 self.log.add_scalar('Loss/ Validation Loss', test_avg_loss, epoch)
                 self.log.add_scalar('Loss/ MSE Loss', test_avg_loss2, epoch)
+
+                wandb.log({'validation loss': test_avg_loss, 'epoch': epoch})
+                wandb.log({'mse loss': test_avg_loss2, 'epoch': epoch})
 
                 print("This is Epoch %d, training loss %.5f, validation loss %.5f, mse loss %.5f" \
                       % (epoch, train_avg_loss, test_avg_loss, test_avg_loss2))
@@ -625,7 +718,11 @@ class Network(object):
 
 
             if epoch > 10:
-                # restart_lr = self.flags.lr * 0.01
+
+                # if epoch % 500 == 0:
+                #     self.add_network_noise()
+
+                restart_lr = self.flags.lr * 0.1
                 if self.flags.use_warm_restart:
                     if epoch % self.flags.lr_warm_restart == 0:
                         for param_group in self.optm.param_groups:
